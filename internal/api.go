@@ -19,8 +19,9 @@ type resource struct {
 	bot *state.State
 	log *logrus.Logger
 
-	self    *discord.User
-	service UserService
+	self          *discord.User
+	service       UserService
+	supportRoleID []SupportRoleID
 }
 
 var (
@@ -30,7 +31,9 @@ var (
 	ErrBigLength  = errors.New("рофлан! слишком много текста, а ну-ка давай сократи")
 )
 
-func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserService) {
+type SupportRoleID uint64
+
+func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserService, conf Config) {
 	me, err := bot.Me()
 	if err != nil {
 		panic(errors.Wrap(err, "failed to get self id"))
@@ -39,11 +42,12 @@ func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserServi
 	logger.Infof("%s is running", me.Username)
 
 	res := &resource{
-		bot:     bot,
-		Router:  cmdroute.NewRouter(),
-		log:     logger,
-		self:    me,
-		service: service,
+		bot:           bot,
+		Router:        cmdroute.NewRouter(),
+		log:           logger,
+		self:          me,
+		service:       service,
+		supportRoleID: conf.SupportRoleID,
 	}
 
 	bot.AddInteractionHandler(res)
@@ -186,6 +190,12 @@ func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.Inte
 		}
 	}
 
+	if !checkAccess(r.supportRoleID, data.Event.Member, parsed) {
+		return &api.InteractionResponseData{
+			Content: option.NewNullableString("У вас нет доступа к этой команде"),
+		}
+	}
+
 	parsed.AddedBy = uint64(data.Event.Member.User.ID)
 	parsed.CreatedAt = time.Now()
 
@@ -199,11 +209,37 @@ func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.Inte
 	return &api.InteractionResponseData{Content: option.NewNullableString("Анкета добавлена")}
 }
 
+// checkAccess
+// Проверяет, есть ли у пользователя доступ к команде
+// Проверяет, есть ли у пользователя роль supportRoleID
+func checkAccess(supportRoleID []SupportRoleID, member *discord.Member, u User) bool {
+	// Если пользователь отправивший команду - это сам пользователь
+	if uint64(member.User.ID) == u.ID {
+		return true
+	}
+
+	for _, role := range member.RoleIDs {
+		for _, support := range supportRoleID {
+			if uint64(role) == uint64(support) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 func (r *resource) Delete(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 	parsed, parsErr := parseUser(data.Options)
 	if parsErr != nil {
 		return &api.InteractionResponseData{
 			Content: option.NewNullableString(parsErr.Error()),
+		}
+	}
+
+	if !checkAccess(r.supportRoleID, data.Event.Member, parsed) {
+		return &api.InteractionResponseData{
+			Content: option.NewNullableString("У вас нет доступа к этой команде"),
 		}
 	}
 

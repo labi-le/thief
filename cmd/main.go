@@ -15,13 +15,6 @@ import (
 	"time"
 )
 
-type Config struct {
-	AccessToken string           `env:"ACCESS_TOKEN,required"`
-	DBConn      string           `env:"DB_CONN,required"`
-	GuildID     internal.GuildID `env:"GUILD_ID,required"`
-	Timeout     int              `env:"TIMEOUT,required"`
-}
-
 var (
 	logger      = initLogger()
 	ctx, cancel = signal.NotifyContext(context.Background(), os.Interrupt)
@@ -30,7 +23,7 @@ var (
 func main() {
 	defer cancel()
 
-	var conf Config
+	var conf internal.Config
 	if err := envconfig.Process(ctx, &conf); err != nil {
 		panic(errors.Wrap(err, "failed to load config"))
 	}
@@ -53,7 +46,7 @@ func main() {
 	us := MustUserService(ur)
 
 	logger.Info("register handlers")
-	internal.RegisterHandlers(bot, logger, us)
+	internal.RegisterHandlers(bot, logger, us, conf)
 
 	defer bot.Close()
 
@@ -61,9 +54,9 @@ func main() {
 		logger.Error(errors.Wrap(err, "failed to open bot"))
 	}
 
-	logger.Info("init job")
-	service := MustStateService(conf, ur, bot)
-	go service.RunJob(ctx)
+	//logger.Info("init job")
+	//service := MustStateService(conf, ur, bot)
+	//go service.RunJob(ctx)
 
 	<-ctx.Done()
 }
@@ -82,7 +75,7 @@ func MustUserService(ur internal.UserRepository) internal.UserService {
 }
 
 func MustStateService(
-	c Config,
+	c internal.Config,
 	ur internal.UserRepository,
 	bot *state.State,
 ) internal.StateService {
