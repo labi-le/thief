@@ -43,7 +43,7 @@ func main() {
 
 	logger.Info("init db")
 	ur := internal.NewUserRepository(MustDB(conf.DBConn))
-	us := MustUserService(ur)
+	us := MustUserService(ur, bot)
 
 	logger.Info("register handlers")
 	internal.RegisterHandlers(bot, logger, us, conf)
@@ -54,9 +54,9 @@ func main() {
 		logger.Error(errors.Wrap(err, "failed to open bot"))
 	}
 
-	//logger.Info("init job")
-	//service := MustStateService(conf, ur, bot)
-	//go service.RunJob(ctx)
+	logger.Info("init job")
+	service := MustStateService(conf, ur, bot)
+	go service.RunJob(ctx)
 
 	<-ctx.Done()
 }
@@ -70,8 +70,8 @@ func MustDB(dbConn string) *sql.DB {
 	return db
 }
 
-func MustUserService(ur internal.UserRepository) internal.UserService {
-	return internal.NewUserService(ur)
+func MustUserService(ur internal.UserRepository, bot *state.State) internal.UserService {
+	return internal.NewUserService(ur, bot)
 }
 
 func MustStateService(

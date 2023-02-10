@@ -19,9 +19,11 @@ type resource struct {
 	bot *state.State
 	log *logrus.Logger
 
-	self          *discord.User
-	service       UserService
+	self    *discord.User
+	service UserService
+
 	supportRoleID []SupportRoleID
+	memberRoleID  []MemberRoleID
 }
 
 var (
@@ -31,7 +33,10 @@ var (
 	ErrBigLength  = errors.New("рофлан! слишком много текста, а ну-ка давай сократи")
 )
 
-type SupportRoleID uint64
+type (
+	SupportRoleID uint64
+	MemberRoleID  uint64
+)
 
 func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserService, conf Config) {
 	me, err := bot.Me()
@@ -48,6 +53,7 @@ func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserServi
 		self:          me,
 		service:       service,
 		supportRoleID: conf.SupportRoleID,
+		memberRoleID:  conf.MemberRoleID,
 	}
 
 	bot.AddInteractionHandler(res)
@@ -196,13 +202,22 @@ func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.Inte
 		}
 	}
 
-	parsed.AddedBy = uint64(data.Event.Member.User.ID)
+	parsed.AddedBy = UserID(data.Event.Member.User.ID)
 	parsed.CreatedAt = time.Now()
 
 	if err := r.service.CreateUser(ctx, parsed); err != nil {
 		r.log.Error(err)
 		return &api.InteractionResponseData{
 			Content: option.NewNullableString("Не удалось создать анкету для пользователя: " + err.Error()),
+		}
+	}
+
+	for _, id := range r.memberRoleID {
+		if err := r.service.AddRole(data.Event.GuildID, parsed.ID, RoleID(id)); err != nil {
+			r.log.Error(err)
+			return &api.InteractionResponseData{
+				Content: option.NewNullableString("Не удалось добавить роль для пользователя: " + err.Error()),
+			}
 		}
 	}
 
@@ -214,7 +229,7 @@ func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.Inte
 // Проверяет, есть ли у пользователя роль supportRoleID
 func checkAccess(supportRoleID []SupportRoleID, member *discord.Member, u User) bool {
 	// Если пользователь отправивший команду - это сам пользователь
-	if uint64(member.User.ID) == u.ID {
+	if UserID(member.User.ID) == u.ID {
 		return true
 	}
 
@@ -280,7 +295,7 @@ func parseUser(opt discord.CommandInteractionOptions) (User, error) {
 	user := User{}
 
 	value, _ := opt.Find("user").SnowflakeValue()
-	user.ID = uint64(value)
+	user.ID = UserID(value)
 
 	age, _ := opt.Find("age").IntValue()
 	if age < 0 && age > 70 {

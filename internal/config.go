@@ -6,4 +6,5 @@ type Config struct {
 	GuildID       GuildID         `env:"GUILD_ID,required"`
 	Timeout       int             `env:"TIMEOUT,required"`
 	SupportRoleID []SupportRoleID `env:"SUPPORT_ROLE_ID,required,delimiter=;"`
+	MemberRoleID  []MemberRoleID  `env:"MEMBER_ROLE_ID,required,delimiter=;"`
 }

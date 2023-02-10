@@ -86,13 +86,13 @@ func (s *stateService) RunJob(ctx context.Context) error {
 	return nil
 }
 
-func diffUsers(users []User, members []discord.Member) []uint64 {
-	var diff []uint64
+func diffUsers(users []User, members []discord.Member) []UserID {
+	var diff []UserID
 
 	for _, u := range users {
 		var found bool
 		for _, m := range members {
-			if u.ID == uint64(m.User.ID) {
+			if u.ID == UserID(m.User.ID) {
 				found = true
 				break
 			}

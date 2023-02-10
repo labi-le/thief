@@ -2,33 +2,48 @@ package internal
 
 import (
 	"context"
+	"github.com/diamondburned/arikawa/v3/api"
+	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/diamondburned/arikawa/v3/state"
 	"math"
 )
 
 type PrettyStats struct {
-	TotalUsers       int64  `json:"total_users"`
-	LastUser         uint64 `json:"last_user"`
+	TotalUsers       uint64 `json:"total_users"`
+	LastUser         UserID `json:"last_user"`
 	AverageAge       int    `json:"average_age"`
 	PopularCity      string `json:"popular_city"`
 	PopularName      string `json:"popular_name"`
-	PopularSupporter int64  `json:"popular_supporter"`
+	PopularSupporter UserID `json:"popular_supporter"`
 }
 
 type UserService interface {
 	CreateUser(ctx context.Context, user User) error
-	GetUser(ctx context.Context, id uint64) (User, error)
+	GetUser(ctx context.Context, id UserID) (User, error)
 	UpdateUser(ctx context.Context, user User) error
-	DeleteUser(ctx context.Context, id uint64) error
+	DeleteUser(ctx context.Context, id UserID) error
 
 	PrettyStats(ctx context.Context) (PrettyStats, error)
+
+	AddRole(guildID discord.GuildID, id UserID, roleID RoleID) error
 }
 
 type service struct {
 	repo UserRepository
+	bot  *state.State
 }
 
-func NewUserService(repo UserRepository) UserService {
-	return &service{repo: repo}
+func (s *service) AddRole(guildID discord.GuildID, userID UserID, roleID RoleID) error {
+	return s.bot.AddRole(
+		guildID,
+		discord.UserID(userID),
+		discord.RoleID(roleID),
+		api.AddRoleData{AuditLogReason: "User added to thief db"},
+	)
+}
+
+func NewUserService(repo UserRepository, bot *state.State) UserService {
+	return &service{repo: repo, bot: bot}
 }
 
 func (s *service) CreateUser(ctx context.Context, user User) error {
@@ -39,7 +54,7 @@ func (s *service) CreateUser(ctx context.Context, user User) error {
 	return s.repo.CreateUser(ctx, user)
 }
 
-func (s *service) GetUser(ctx context.Context, id uint64) (User, error) {
+func (s *service) GetUser(ctx context.Context, id UserID) (User, error) {
 	return s.repo.GetUser(ctx, id)
 }
 
@@ -51,7 +66,7 @@ func (s *service) UpdateUser(ctx context.Context, user User) error {
 	return s.repo.UpdateUser(ctx, user)
 }
 
-func (s *service) DeleteUser(ctx context.Context, id uint64) error {
+func (s *service) DeleteUser(ctx context.Context, id UserID) error {
 	return s.repo.DeleteUser(ctx, id)
 }
 
@@ -67,13 +82,13 @@ func (s *service) PrettyStats(ctx context.Context) (PrettyStats, error) {
 		averageAge       int
 		popularCity      string
 		popularName      string
-		popularSupporter int64
+		popularSupporter UserID
 	)
 
 	var (
 		counterCity    = make(map[string]int)
 		counterName    = make(map[string]int)
-		supportCounter = make(map[int64]int)
+		supportCounter = make(map[UserID]int)
 		allAges        int
 		usersLength    = len(all)
 	)
@@ -86,7 +101,7 @@ func (s *service) PrettyStats(ctx context.Context) (PrettyStats, error) {
 		// самое популярное имя
 		counterName[user.Name]++
 		// самый популярный добавивший
-		supportCounter[int64(user.AddedBy)]++
+		supportCounter[user.AddedBy]++
 	}
 
 	averageAge = int(math.Round(float64(allAges) / float64(usersLength)))
@@ -109,7 +124,7 @@ func (s *service) PrettyStats(ctx context.Context) (PrettyStats, error) {
 		}
 	}
 
-	pretty.TotalUsers = int64(len(all))
+	pretty.TotalUsers = uint64(len(all))
 	pretty.LastUser = all[len(all)-1].ID
 	pretty.AverageAge = averageAge
 	pretty.PopularCity = popularCity

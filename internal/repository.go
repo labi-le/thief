@@ -7,24 +7,29 @@ import (
 	"time"
 )
 
+type (
+	UserID uint64
+	RoleID uint64
+)
+
 type User struct {
-	ID         uint64    `json:"id"`
+	ID         UserID    `json:"id"`
 	Name       string    `json:"name"`
 	Age        int       `json:"age"`
 	Location   string    `json:"location"`
 	Hobbies    string    `json:"hobbies"`
 	Occupation string    `json:"occupation"`
 	Goals      string    `json:"goals"`
-	AddedBy    uint64    `json:"added_by"`
+	AddedBy    UserID    `json:"added_by"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 
 type UserRepository interface {
 	CreateUser(ctx context.Context, user User) error
-	GetUser(ctx context.Context, id uint64) (User, error)
+	GetUser(ctx context.Context, id UserID) (User, error)
 	UpdateUser(ctx context.Context, user User) error
-	DeleteUser(ctx context.Context, id uint64) error
-	DeleteUsers(ctx context.Context, id ...uint64) error
+	DeleteUser(ctx context.Context, id UserID) error
+	DeleteUsers(ctx context.Context, id ...UserID) error
 	All(ctx context.Context) ([]User, error)
 }
 
@@ -85,7 +90,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	return err
 }
 
-func (r *repository) GetUser(ctx context.Context, id uint64) (User, error) {
+func (r *repository) GetUser(ctx context.Context, id UserID) (User, error) {
 	var (
 		u       User
 		rawTime int64
@@ -109,16 +114,16 @@ func (r *repository) UpdateUser(ctx context.Context, user User) error {
 	).Err()
 }
 
-func (r *repository) DeleteUser(ctx context.Context, id uint64) error {
+func (r *repository) DeleteUser(ctx context.Context, id UserID) error {
 	return r.db.QueryRowContext(
 		ctx, `DELETE FROM users WHERE id = ?`, id,
 	).Err()
 }
 
-func (r *repository) DeleteUsers(ctx context.Context, id ...uint64) error {
+func (r *repository) DeleteUsers(ctx context.Context, id ...UserID) error {
 	ids := "("
 	for _, i := range id {
-		ids += strconv.FormatUint(i, 10) + ","
+		ids += strconv.FormatUint(uint64(i), 10) + ","
 	}
 
 	// replace last comma with closing bracket
