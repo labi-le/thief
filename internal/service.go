@@ -8,15 +8,6 @@ import (
 	"math"
 )
 
-type PrettyStats struct {
-	TotalUsers       uint64 `json:"total_users"`
-	LastUser         UserID `json:"last_user"`
-	AverageAge       int    `json:"average_age"`
-	PopularCity      string `json:"popular_city"`
-	PopularName      string `json:"popular_name"`
-	PopularSupporter UserID `json:"popular_supporter"`
-}
-
 type UserService interface {
 	CreateUser(ctx context.Context, user User) error
 	GetUser(ctx context.Context, id UserID) (User, error)

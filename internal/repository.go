@@ -7,23 +7,6 @@ import (
 	"time"
 )
 
-type (
-	UserID uint64
-	RoleID uint64
-)
-
-type User struct {
-	ID         UserID    `json:"id"`
-	Name       string    `json:"name"`
-	Age        int       `json:"age"`
-	Location   string    `json:"location"`
-	Hobbies    string    `json:"hobbies"`
-	Occupation string    `json:"occupation"`
-	Goals      string    `json:"goals"`
-	AddedBy    UserID    `json:"added_by"`
-	CreatedAt  time.Time `json:"created_at"`
-}
-
 type UserRepository interface {
 	CreateUser(ctx context.Context, user User) error
 	GetUser(ctx context.Context, id UserID) (User, error)

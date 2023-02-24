@@ -2,7 +2,7 @@ package internal
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -10,6 +10,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -46,9 +47,13 @@ var (
 	ErrValidateForm = errors.New("Форма не соответствует регулярному выражению")
 )
 
-type (
-	SupportRoleID uint64
-	MemberRoleID  uint64
+var (
+	// regexpName валидация имени пользователя (только буквы)
+	regexpName = regexp.MustCompile(`^[a-zA-Zа-яА-Я-]{1,50}$`)
+	// regexpLocation валидация местоположения пользователя (только буквы, тире, пробелы)
+	regexpLocation = regexp.MustCompile(`^[a-zA-Zа-яА-Я]+(?:[ -][a-zA-Zа-яА-Я]+)*$`)
+	// regexpHobbies валидация хобби пользователя (например "рисование, игра на гитаре, видеоигры, anime")
+	regexpText = regexp.MustCompile(`^[a-zA-Zа-яА-Я\s,]+$`)
 )
 
 func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserService, conf Config) {
@@ -170,7 +175,7 @@ func getInlineCommands() []api.CreateCommandData {
 }
 
 func (r *resource) Help(_ context.Context, _ cmdroute.CommandData) *api.InteractionResponseData {
-	msg := `**Thief** - честный аккумулятор анкет
+	msg := `**Thief** - честный хранитель анкет
 
 **/get** - получить анкету участника
 **/set** - добавить или изменить анкету
@@ -192,7 +197,7 @@ func (r *resource) Get(ctx context.Context, data cmdroute.CommandData) *api.Inte
 		return r.send(ErrFormNotFound.Error())
 	}
 
-	return r.send(makeJsonInteractionData(user))
+	return r.sendSilent(makePrettyStructure(user))
 }
 
 func ParseUserID(data discord.CommandInteractionOptions) (UserID, error) {
@@ -203,9 +208,7 @@ func ParseUserID(data discord.CommandInteractionOptions) (UserID, error) {
 func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 	parsed, parsErr := ParseUser(data.Options)
 	if parsErr != nil {
-		return &api.InteractionResponseData{
-			Content: option.NewNullableString(parsErr.Error()),
-		}
+		return r.send(parsErr.Error())
 	}
 
 	parsed.AddedBy = UserID(data.Event.Member.User.ID)
@@ -269,7 +272,7 @@ func (r *resource) Stats(ctx context.Context, _ cmdroute.CommandData) *api.Inter
 		return r.send("Не удалось получить статистику: " + err.Error())
 	}
 
-	return r.send(makeJsonInteractionData(stats))
+	return r.sendSilent(makePrettyStructure(stats))
 }
 
 func (r *resource) CheckAccess(next cmdroute.InteractionHandler) cmdroute.InteractionHandler {
@@ -303,25 +306,48 @@ func (r *resource) send(msg string) *api.InteractionResponseData {
 	return &api.InteractionResponseData{Content: option.NewNullableString(msg)}
 }
 
-// makeJsonInteractionData
-// pretty marshal
-func makeJsonInteractionData(data any) string {
-	b, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		panic(err)
+func (r *resource) sendSilent(msg string) *api.InteractionResponseData {
+	return &api.InteractionResponseData{
+		Content: option.NewNullableString(msg),
+		AllowedMentions: &api.AllowedMentions{
+			Parse: []api.AllowedMentionType{},
+		},
 	}
-	return "```json\n " + string(b) + "```"
 }
 
-var (
+// makePrettyStructure
+// pretty marshal
+func makePrettyStructure(data interface{}) string {
+	v := reflect.ValueOf(data)
+	t := v.Type()
 
-	// regexpName валидация имени пользователя (только буквы)
-	regexpName = regexp.MustCompile(`^[a-zA-Zа-яА-Я-]{1,50}$`)
-	// regexpLocation валидация местоположения пользователя (только буквы, тире, пробелы)
-	regexpLocation = regexp.MustCompile(`^[a-zA-Zа-яА-Я]+(?:[ -][a-zA-Zа-яА-Я]+)*$`)
-	// regexpHobbies валидация хобби пользователя (например "рисование, игра на гитаре, видеоигры, anime")
-	regexpText = regexp.MustCompile(`^[a-zA-Zа-яА-Я\s,]+$`)
-)
+	var sb strings.Builder
+	sb.Grow(512)
+
+	for i := 0; i < v.NumField(); i++ {
+		field, name := v.Field(i), t.Field(i).Name
+		value := fmt.Sprint(field.Interface())
+
+		switch discordTag := t.Field(i).Tag.Get("discord"); discordTag {
+		case "id":
+			value = fmt.Sprintf("<@%v>", field.Interface())
+		}
+
+		sb.WriteString("**")
+		if prettyTag := t.Field(i).Tag.Get("pretty"); prettyTag != "" {
+			sb.WriteString(prettyTag)
+		} else {
+			sb.WriteString(name)
+		}
+
+		sb.WriteString("**: ")
+		sb.WriteString(value)
+		sb.WriteString("\n")
+
+	}
+
+	return sb.String()
+}
 
 func ParseUser(opt discord.CommandInteractionOptions) (User, error) {
 	user := User{}
