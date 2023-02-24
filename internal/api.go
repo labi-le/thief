@@ -31,6 +31,9 @@ var (
 		"рофлан! не ври! я знаю только одно человека с длинным именем — **Uwuwewewe Onyetenwewe Ugweuhem Osas**")
 	ErrInvalidAge = errors.New("рофлан! не обманывай! не может быть тебе столько лет!")
 	ErrBigLength  = errors.New("рофлан! слишком много текста, а ну-ка давай сократи")
+
+	ErrNoAccess     = errors.New("У вас нет доступа к этой команде")
+	ErrFormNotFound = errors.New("Анкета не найдена")
 )
 
 type (
@@ -58,14 +61,12 @@ func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserServi
 
 	bot.AddInteractionHandler(res)
 
-	//app, _ := bot.CurrentApplication()
-	//bot.BulkOverwriteGuildCommands(app.ID, 1060870426617708634, cmds)
-
-	res.AddFunc("set", res.Set)
-	res.AddFunc("get", res.Get)
-	res.AddFunc("delete", res.Delete)
 	res.AddFunc("stats", res.Stats)
 	res.AddFunc("help", res.Help)
+	res.AddFunc("get", res.Get)
+	res.Use(res.CheckAccess)
+	res.AddFunc("set", res.Set)
+	res.AddFunc("delete", res.Delete)
 
 	if err := cmdroute.OverwriteCommands(bot, getInlineCommands()); err != nil {
 		panic(errors.Wrap(err, "failed to overwrite commands"))
@@ -166,26 +167,22 @@ func (r *resource) Help(_ context.Context, _ cmdroute.CommandData) *api.Interact
 **/delete** - удалить анкету
 **/help** - показать это сообщение`
 
-	return &api.InteractionResponseData{
-		Content: option.NewNullableString(msg),
-	}
+	return r.send(msg)
 }
 
 func (r *resource) Get(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 	parsed, parsErr := parseUser(data.Options)
 	if parsErr != nil {
-		return &api.InteractionResponseData{
-			Content: option.NewNullableString(parsErr.Error()),
-		}
+		return r.send(parsErr.Error())
 	}
 
 	user, err := r.service.GetUser(ctx, parsed.ID)
 	if err != nil {
 		r.log.Error(err)
-		return &api.InteractionResponseData{Content: option.NewNullableString("Анкета не найдена")}
+		return r.send(ErrFormNotFound.Error())
 	}
 
-	return makeJsonInteractionData(user)
+	return r.send(makeJsonInteractionData(user))
 }
 
 func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
@@ -196,40 +193,30 @@ func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.Inte
 		}
 	}
 
-	if !checkAccess(r.supportRoleID, data.Event.Member, parsed) {
-		return &api.InteractionResponseData{
-			Content: option.NewNullableString("У вас нет доступа к этой команде"),
-		}
-	}
-
 	parsed.AddedBy = UserID(data.Event.Member.User.ID)
 	parsed.CreatedAt = time.Now()
 
 	if err := r.service.CreateUser(ctx, parsed); err != nil {
 		r.log.Error(err)
-		return &api.InteractionResponseData{
-			Content: option.NewNullableString("Не удалось создать анкету для пользователя: " + err.Error()),
-		}
+		return r.send("Не удалось создать анкету для пользователя: " + err.Error())
 	}
 
 	for _, id := range r.memberRoleID {
 		if err := r.service.AddRole(data.Event.GuildID, parsed.ID, RoleID(id)); err != nil {
 			r.log.Error(err)
-			return &api.InteractionResponseData{
-				Content: option.NewNullableString("Не удалось добавить роль для пользователя: " + err.Error()),
-			}
+			return r.send("Не удалось добавить роль для пользователя: " + err.Error())
 		}
 	}
 
-	return &api.InteractionResponseData{Content: option.NewNullableString("Анкета добавлена")}
+	return r.send("Анкета добавлена")
 }
 
 // checkAccess
 // Проверяет, есть ли у пользователя доступ к команде
 // Проверяет, есть ли у пользователя роль supportRoleID
-func checkAccess(supportRoleID []SupportRoleID, member *discord.Member, u User) bool {
+func checkAccess(supportRoleID []SupportRoleID, member *discord.Member, selectable User) bool {
 	// Если пользователь отправивший команду - это сам пользователь
-	if UserID(member.User.ID) == u.ID {
+	if UserID(member.User.ID) == selectable.ID {
 		return true
 	}
 
@@ -247,15 +234,7 @@ func checkAccess(supportRoleID []SupportRoleID, member *discord.Member, u User) 
 func (r *resource) Delete(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 	parsed, parsErr := parseUser(data.Options)
 	if parsErr != nil {
-		return &api.InteractionResponseData{
-			Content: option.NewNullableString(parsErr.Error()),
-		}
-	}
-
-	if !checkAccess(r.supportRoleID, data.Event.Member, parsed) {
-		return &api.InteractionResponseData{
-			Content: option.NewNullableString("У вас нет доступа к этой команде"),
-		}
+		return r.send(parsErr.Error())
 	}
 
 	if err := r.service.DeleteUser(ctx, parsed.ID); err != nil {
@@ -263,7 +242,7 @@ func (r *resource) Delete(ctx context.Context, data cmdroute.CommandData) *api.I
 		r.log.Error(err)
 	}
 
-	return &api.InteractionResponseData{Content: option.NewNullableString("Анкета удалена")}
+	return r.send("Анкета удалена")
 }
 
 func (r *resource) Stats(ctx context.Context, _ cmdroute.CommandData) *api.InteractionResponseData {
@@ -271,24 +250,52 @@ func (r *resource) Stats(ctx context.Context, _ cmdroute.CommandData) *api.Inter
 	if err != nil {
 		err = errors.Wrap(err, "failed to get stats")
 		r.log.Error(err)
-		return &api.InteractionResponseData{
-			Content: option.NewNullableString("Не удалось получить статистику: " + err.Error()),
-		}
+
+		return r.send("Не удалось получить статистику: " + err.Error())
 	}
 
-	return makeJsonInteractionData(stats)
+	return r.send(makeJsonInteractionData(stats))
+}
+
+func (r *resource) CheckAccess(next cmdroute.InteractionHandler) cmdroute.InteractionHandler {
+	return cmdroute.InteractionHandlerFunc(
+		func(ctx context.Context, ev *discord.InteractionEvent) *api.InteractionResponse {
+			if ev.Data.InteractionType() == discord.CommandInteractionType {
+				interaction := ev.Data.(*discord.CommandInteraction)
+
+				parsed, err := parseUser(interaction.Options)
+				if err != nil {
+					return r.createInteractionErrorResponse(err)
+				}
+
+				if !checkAccess(r.supportRoleID, ev.Member, parsed) {
+					return r.createInteractionErrorResponse(ErrNoAccess)
+				}
+			}
+
+			return next.HandleInteraction(ctx, ev)
+		})
+}
+
+func (r *resource) createInteractionErrorResponse(err error) *api.InteractionResponse {
+	return &api.InteractionResponse{
+		Type: api.MessageInteractionWithSource,
+		Data: r.send(err.Error()),
+	}
+}
+
+func (r *resource) send(msg string) *api.InteractionResponseData {
+	return &api.InteractionResponseData{Content: option.NewNullableString(msg)}
 }
 
 // makeJsonInteractionData
 // pretty marshal
-func makeJsonInteractionData(data any) *api.InteractionResponseData {
+func makeJsonInteractionData(data any) string {
 	b, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		panic(err)
 	}
-	return &api.InteractionResponseData{
-		Content: option.NewNullableString("```json\n " + string(b) + "```"),
-	}
+	return "```json\n " + string(b) + "```"
 }
 
 func parseUser(opt discord.CommandInteractionOptions) (User, error) {
