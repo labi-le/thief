@@ -10,6 +10,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -26,14 +27,23 @@ type resource struct {
 	memberRoleID  []MemberRoleID
 }
 
+const (
+	UserTag       = "user"
+	AgeTag        = "age"
+	NameTag       = "name"
+	LocationTag   = "location"
+	HobbiesTag    = "hobbies"
+	OccupationTag = "occupation"
+	GoalsTag      = "goals"
+)
+
 var (
-	ErrInvalidName = errors.New(
-		"рофлан! не ври! я знаю только одно человека с длинным именем — **Uwuwewewe Onyetenwewe Ugweuhem Osas**")
-	ErrInvalidAge = errors.New("рофлан! не обманывай! не может быть тебе столько лет!")
-	ErrBigLength  = errors.New("рофлан! слишком много текста, а ну-ка давай сократи")
+	ErrInvalidAge = errors.New("Столько люди не живут!")
 
 	ErrNoAccess     = errors.New("У вас нет доступа к этой команде")
 	ErrFormNotFound = errors.New("Анкета не найдена")
+
+	ErrValidateForm = errors.New("Форма не соответствует регулярному выражению")
 )
 
 type (
@@ -81,43 +91,43 @@ func getInlineCommands() []api.CreateCommandData {
 
 			Options: []discord.CommandOption{
 				&discord.UserOption{
-					OptionName:  "user",
+					OptionName:  UserTag,
 					Description: "Никнейм",
 					Required:    true,
 				},
 
 				&discord.StringOption{
-					OptionName:  "name",
+					OptionName:  NameTag,
 					Description: "Имя",
 					Required:    true,
 				},
 
 				&discord.IntegerOption{
-					OptionName:  "age",
+					OptionName:  AgeTag,
 					Description: "Возраст",
 					Required:    true,
 				},
 
 				&discord.StringOption{
-					OptionName:  "location",
+					OptionName:  LocationTag,
 					Description: "Город проживания",
 					Required:    true,
 				},
 
 				&discord.StringOption{
-					OptionName:  "hobbies",
+					OptionName:  HobbiesTag,
 					Description: "Увлечения",
 					Required:    true,
 				},
 
 				&discord.StringOption{
-					OptionName:  "occupation",
+					OptionName:  OccupationTag,
 					Description: "Род деятельности (учеба, работа)",
 					Required:    true,
 				},
 
 				&discord.StringOption{
-					OptionName:  "goals",
+					OptionName:  GoalsTag,
 					Description: "Цели",
 					Required:    true,
 				},
@@ -129,7 +139,7 @@ func getInlineCommands() []api.CreateCommandData {
 
 			Options: []discord.CommandOption{
 				&discord.UserOption{
-					OptionName:  "user",
+					OptionName:  UserTag,
 					Description: "Никнейм",
 					Required:    true,
 				},
@@ -140,7 +150,7 @@ func getInlineCommands() []api.CreateCommandData {
 			Description: "Удалить анкету пользователя",
 			Options: []discord.CommandOption{
 				&discord.UserOption{
-					OptionName:  "user",
+					OptionName:  UserTag,
 					Description: "Никнейм",
 					Required:    true,
 				},
@@ -298,46 +308,60 @@ func makeJsonInteractionData(data any) string {
 	return "```json\n " + string(b) + "```"
 }
 
+var (
+
+	// regexpName валидация имени пользователя (только буквы)
+	regexpName = regexp.MustCompile(`^[a-zA-Zа-яА-Я-]{1,50}$`)
+	// regexpLocation валидация местоположения пользователя (только буквы, тире, пробелы)
+	regexpLocation = regexp.MustCompile(`^[a-zA-Zа-яА-Я]+(?:[ -][a-zA-Zа-яА-Я]+)*$`)
+	// regexpHobbies валидация хобби пользователя (например "рисование, игра на гитаре, видеоигры, anime")
+	regexpText = regexp.MustCompile(`^[a-zA-Zа-яА-Я\s,]+$`)
+)
+
 func parseUser(opt discord.CommandInteractionOptions) (User, error) {
 	user := User{}
 
-	value, _ := opt.Find("user").SnowflakeValue()
+	value, _ := opt.Find(UserTag).SnowflakeValue()
 	user.ID = UserID(value)
 
-	age, _ := opt.Find("age").IntValue()
-	if age < 0 && age > 70 {
+	age, _ := opt.Find(AgeTag).IntValue()
+	if age < 12 || age > 70 {
 		return user, ErrInvalidAge
 	}
 
 	user.Age = int(age)
 
-	name := strings.TrimSpace(opt.Find("name").String())
-	if len(name) > 50 {
-		return user, ErrInvalidName
+	name := strings.TrimSpace(opt.Find(NameTag).String())
+	if !regexpName.MatchString(name) {
+		return user, errors.Wrap(ErrValidateForm, NameTag)
 	}
+
 	user.Name = name
 
-	location := strings.TrimSpace(opt.Find("location").String())
-	if len(location) > 100 {
-		return user, ErrBigLength
+	location := strings.TrimSpace(opt.Find(LocationTag).String())
+	if !regexpLocation.MatchString(location) {
+		return user, errors.Wrap(ErrValidateForm, LocationTag)
 	}
+
 	user.Location = location
 
-	hobbies := strings.TrimSpace(opt.Find("hobbies").String())
-	if len(hobbies) > 255 {
-		return user, ErrBigLength
+	hobbies := strings.TrimSpace(opt.Find(HobbiesTag).String())
+	if !regexpText.MatchString(hobbies) {
+		return user, errors.Wrap(ErrValidateForm, HobbiesTag)
 	}
+
 	user.Hobbies = hobbies
 
-	occupation := strings.TrimSpace(opt.Find("occupation").String())
-	if len(occupation) > 100 {
-		return user, ErrBigLength
+	occupation := strings.TrimSpace(opt.Find(OccupationTag).String())
+	if !regexpText.MatchString(occupation) {
+		return user, errors.Wrap(ErrValidateForm, OccupationTag)
 	}
+
 	user.Occupation = occupation
 
-	goals := strings.TrimSpace(opt.Find("goals").String())
-	if len(goals) > 255 {
-		return user, ErrBigLength
+	goals := strings.TrimSpace(opt.Find(GoalsTag).String())
+	if !regexpText.MatchString(goals) {
+		return user, errors.Wrap(ErrValidateForm, GoalsTag)
 	}
 
 	user.Goals = goals
