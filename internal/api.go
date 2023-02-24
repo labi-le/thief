@@ -181,12 +181,12 @@ func (r *resource) Help(_ context.Context, _ cmdroute.CommandData) *api.Interact
 }
 
 func (r *resource) Get(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-	parsed, parsErr := parseUser(data.Options)
+	parsed, parsErr := ParseUserID(data.Options)
 	if parsErr != nil {
 		return r.send(parsErr.Error())
 	}
 
-	user, err := r.service.GetUser(ctx, parsed.ID)
+	user, err := r.service.GetUser(ctx, parsed)
 	if err != nil {
 		r.log.Error(err)
 		return r.send(ErrFormNotFound.Error())
@@ -195,8 +195,13 @@ func (r *resource) Get(ctx context.Context, data cmdroute.CommandData) *api.Inte
 	return r.send(makeJsonInteractionData(user))
 }
 
+func ParseUserID(data discord.CommandInteractionOptions) (UserID, error) {
+	value, err := data.Find(UserTag).SnowflakeValue()
+	return UserID(value), err
+}
+
 func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-	parsed, parsErr := parseUser(data.Options)
+	parsed, parsErr := ParseUser(data.Options)
 	if parsErr != nil {
 		return &api.InteractionResponseData{
 			Content: option.NewNullableString(parsErr.Error()),
@@ -224,9 +229,9 @@ func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.Inte
 // checkAccess
 // Проверяет, есть ли у пользователя доступ к команде
 // Проверяет, есть ли у пользователя роль supportRoleID
-func checkAccess(supportRoleID []SupportRoleID, member *discord.Member, selectable User) bool {
+func checkAccess(supportRoleID []SupportRoleID, member *discord.Member, selectable UserID) bool {
 	// Если пользователь отправивший команду - это сам пользователь
-	if UserID(member.User.ID) == selectable.ID {
+	if UserID(member.User.ID) == selectable {
 		return true
 	}
 
@@ -242,7 +247,7 @@ func checkAccess(supportRoleID []SupportRoleID, member *discord.Member, selectab
 }
 
 func (r *resource) Delete(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-	parsed, parsErr := parseUser(data.Options)
+	parsed, parsErr := ParseUser(data.Options)
 	if parsErr != nil {
 		return r.send(parsErr.Error())
 	}
@@ -273,12 +278,12 @@ func (r *resource) CheckAccess(next cmdroute.InteractionHandler) cmdroute.Intera
 			if ev.Data.InteractionType() == discord.CommandInteractionType {
 				interaction := ev.Data.(*discord.CommandInteraction)
 
-				parsed, err := parseUser(interaction.Options)
+				userID, err := ParseUserID(interaction.Options)
 				if err != nil {
 					return r.createInteractionErrorResponse(err)
 				}
 
-				if !checkAccess(r.supportRoleID, ev.Member, parsed) {
+				if !checkAccess(r.supportRoleID, ev.Member, userID) {
 					return r.createInteractionErrorResponse(ErrNoAccess)
 				}
 			}
@@ -318,11 +323,15 @@ var (
 	regexpText = regexp.MustCompile(`^[a-zA-Zа-яА-Я\s,]+$`)
 )
 
-func parseUser(opt discord.CommandInteractionOptions) (User, error) {
+func ParseUser(opt discord.CommandInteractionOptions) (User, error) {
 	user := User{}
 
-	value, _ := opt.Find(UserTag).SnowflakeValue()
-	user.ID = UserID(value)
+	id, parseIDErr := ParseUserID(opt)
+	if parseIDErr != nil {
+		return user, parseIDErr
+	}
+
+	user.ID = id
 
 	age, _ := opt.Find(AgeTag).IntValue()
 	if age < 12 || age > 70 {
