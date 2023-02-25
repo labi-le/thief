@@ -14,6 +14,7 @@ type UserRepository interface {
 	DeleteUser(ctx context.Context, id UserID) error
 	DeleteUsers(ctx context.Context, id ...UserID) error
 	All(ctx context.Context) ([]User, error)
+	PrettyStats(ctx context.Context) (PrettyStats, error)
 }
 
 func NewUserRepository(db *sql.DB) UserRepository {
@@ -42,7 +43,6 @@ SELECT id,
        added_by,
        created_at
 FROM users
-ORDER BY created_at DESC
 `)
 	if err != nil {
 		return users, err
@@ -127,4 +127,39 @@ func (r *repository) DeleteUsers(ctx context.Context, id ...UserID) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM users WHERE id IN `+ids)
 
 	return err
+}
+
+//goland:noinspection ALL
+func (r *repository) PrettyStats(ctx context.Context) (PrettyStats, error) {
+	var (
+		stats PrettyStats
+	)
+
+	return stats, r.db.QueryRowContext(
+		ctx,
+		`
+select count()                                    as total_user,
+       u_last.id                                  as last_user,
+       round(avg(age))                            as average_age,
+       u_loc.location                             as most_popular_location,
+       u_name.name                                as most_popular_name,
+       u_added.added_by                           as most_popular_supporter,
+       sum(case when age < 18 then 1 else 0 end)  as under_18,
+       sum(case when age >= 18 then 1 else 0 end) as over_18
+from users
+         join (select id from users order by created_at desc limit 1) u_last
+         join (select location, count() as cnt from users group by location order by cnt desc limit 1) u_loc
+         join (select name, count() as cnt from users group by name order by cnt desc limit 1) u_name
+         join (select added_by, count() as cnt from users group by added_by order by cnt desc limit 1) u_added`,
+	).Scan(
+		&stats.TotalUsers,
+		&stats.LastUser,
+		&stats.AverageAge,
+		&stats.PopularLocation,
+		&stats.PopularName,
+		&stats.PopularSupporter,
+		&stats.Under18,
+		&stats.Over18,
+	)
+
 }

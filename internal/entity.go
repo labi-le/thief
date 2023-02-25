@@ -36,8 +36,10 @@ type (
 type PrettyStats struct {
 	TotalUsers       uint64 `json:"total_users" pretty:"Всего пользователей"`
 	LastUser         UserID `json:"last_user" discord:"id" pretty:"Последняя добавленная анкета"`
-	AverageAge       int    `json:"average_age" pretty:"Средний возраст"`
-	PopularCity      string `json:"popular_city" pretty:"Популярный город"`
+	AverageAge       uint8  `json:"average_age" pretty:"Средний возраст"`
+	PopularLocation  string `json:"popular_city" pretty:"Популярный город"`
 	PopularName      string `json:"popular_name" pretty:"Популярное имя"`
 	PopularSupporter UserID `json:"popular_supporter" discord:"id" pretty:"Добавил больше всего пользователей"`
+	Under18          uint64 `json:"under_18" pretty:"Количество пользователей младше 18"`
+	Over18           uint64 `json:"over_18" pretty:"Количество пользователей старше 18"`
 }
