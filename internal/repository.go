@@ -31,7 +31,19 @@ func (r *repository) All(ctx context.Context) ([]User, error) {
 
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT id, name, age, location, hobbies, occupation, goals, added_by, created_at FROM users`)
+		`
+SELECT id,
+       name,
+       age,
+       location,
+       hobbies,
+       occupation,
+       goals,
+       added_by,
+       created_at
+FROM users
+ORDER BY created_at DESC
+`)
 	if err != nil {
 		return users, err
 	}

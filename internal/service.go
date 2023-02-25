@@ -116,7 +116,8 @@ func (s *service) PrettyStats(ctx context.Context) (PrettyStats, error) {
 	}
 
 	pretty.TotalUsers = uint64(len(all))
-	pretty.LastUser = all[len(all)-1].ID
+	// сортировка идёт по desc значит берём первый элемент
+	pretty.LastUser = all[0].ID
 	pretty.AverageAge = averageAge
 	pretty.PopularCity = popularCity
 	pretty.PopularName = popularName

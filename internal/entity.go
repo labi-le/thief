@@ -35,7 +35,7 @@ type (
 
 type PrettyStats struct {
 	TotalUsers       uint64 `json:"total_users" pretty:"Всего пользователей"`
-	LastUser         UserID `json:"last_user" discord:"id" pretty:"Последний добавленный пользователь"`
+	LastUser         UserID `json:"last_user" discord:"id" pretty:"Последняя добавленная анкета"`
 	AverageAge       int    `json:"average_age" pretty:"Средний возраст"`
 	PopularCity      string `json:"popular_city" pretty:"Популярный город"`
 	PopularName      string `json:"popular_name" pretty:"Популярное имя"`
