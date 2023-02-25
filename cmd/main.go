@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/state"
+	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	"github.com/sethvargo/go-envconfig"
 	"github.com/sirupsen/logrus"
@@ -71,7 +72,7 @@ func MustDB(dbConn string) *sql.DB {
 }
 
 func MustUserService(ur internal.UserRepository, bot *state.State) internal.UserService {
-	return internal.NewUserService(ur, bot)
+	return internal.NewUserService(ur, bot, cache.New(5*time.Minute, 10*time.Minute))
 }
 
 func MustStateService(

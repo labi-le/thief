@@ -5,6 +5,8 @@ import (
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/state"
+	"github.com/patrickmn/go-cache"
+	"time"
 )
 
 type UserService interface {
@@ -19,8 +21,13 @@ type UserService interface {
 }
 
 type service struct {
-	repo UserRepository
-	bot  *state.State
+	repo  UserRepository
+	bot   *state.State
+	cache *cache.Cache
+}
+
+func NewUserService(repo UserRepository, bot *state.State, cache *cache.Cache) UserService {
+	return &service{repo: repo, bot: bot, cache: cache}
 }
 
 func (s *service) AddRole(guildID discord.GuildID, userID UserID, roleID RoleID) error {
@@ -30,10 +37,6 @@ func (s *service) AddRole(guildID discord.GuildID, userID UserID, roleID RoleID)
 		discord.RoleID(roleID),
 		api.AddRoleData{AuditLogReason: "User added to thief db"},
 	)
-}
-
-func NewUserService(repo UserRepository, bot *state.State) UserService {
-	return &service{repo: repo, bot: bot}
 }
 
 func (s *service) CreateUser(ctx context.Context, user User) error {
@@ -60,6 +63,34 @@ func (s *service) DeleteUser(ctx context.Context, id UserID) error {
 	return s.repo.DeleteUser(ctx, id)
 }
 
+const (
+	StatsCache = "stats"
+)
+
+const (
+	FiveMinute = 5 * time.Minute
+)
+
 func (s *service) PrettyStats(ctx context.Context) (PrettyStats, error) {
-	return s.repo.PrettyStats(ctx)
+	var stats PrettyStats
+	v, err := s.cacheGetOrSet(StatsCache, func() (any, error) {
+		return s.repo.PrettyStats(ctx)
+	}, FiveMinute)
+	if err != nil {
+		return stats, err
+	}
+	return v.(PrettyStats), nil
+}
+
+func (s *service) cacheGetOrSet(k string, fn func() (any, error), d time.Duration) (any, error) {
+	get, exist := s.cache.Get(k)
+	if exist {
+		return get, nil
+	}
+
+	v, err := fn()
+	if err == nil {
+		s.cache.Set(k, v, d)
+	}
+	return v, err
 }

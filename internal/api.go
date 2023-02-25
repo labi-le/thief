@@ -79,7 +79,8 @@ func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserServi
 	res.AddFunc("stats", res.Stats)
 	res.AddFunc("help", res.Help)
 	res.AddFunc("get", res.Get)
-	res.Use(res.CheckAccess)
+
+	//res.Use(res.CheckAccess)
 	res.AddFunc("set", res.Set)
 	res.AddFunc("delete", res.Delete)
 
@@ -211,6 +212,10 @@ func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.Inte
 		return r.send(parsErr.Error())
 	}
 
+	if !checkAccess(r.supportRoleID, data.Event.Member, parsed.ID) {
+		return r.send(ErrNoAccess.Error())
+	}
+
 	parsed.AddedBy = UserID(data.Event.Member.User.ID)
 	parsed.CreatedAt = time.Now()
 
@@ -250,12 +255,16 @@ func checkAccess(supportRoleID []SupportRoleID, member *discord.Member, selectab
 }
 
 func (r *resource) Delete(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-	parsed, parsErr := ParseUser(data.Options)
+	parsed, parsErr := ParseUserID(data.Options)
 	if parsErr != nil {
 		return r.send(parsErr.Error())
 	}
 
-	if err := r.service.DeleteUser(ctx, parsed.ID); err != nil {
+	if !checkAccess(r.supportRoleID, data.Event.Member, parsed) {
+		return r.send(ErrNoAccess.Error())
+	}
+
+	if err := r.service.DeleteUser(ctx, parsed); err != nil {
 		err = errors.Wrap(err, "failed to delete user")
 		r.log.Error(err)
 	}
@@ -275,32 +284,32 @@ func (r *resource) Stats(ctx context.Context, _ cmdroute.CommandData) *api.Inter
 	return r.sendSilent(makePrettyStructure(stats))
 }
 
-func (r *resource) CheckAccess(next cmdroute.InteractionHandler) cmdroute.InteractionHandler {
-	return cmdroute.InteractionHandlerFunc(
-		func(ctx context.Context, ev *discord.InteractionEvent) *api.InteractionResponse {
-			if ev.Data.InteractionType() == discord.CommandInteractionType {
-				interaction := ev.Data.(*discord.CommandInteraction)
+//func (r *resource) CheckAccess(next cmdroute.InteractionHandler) cmdroute.InteractionHandler {
+//	return cmdroute.InteractionHandlerFunc(
+//		func(ctx context.Context, ev *discord.InteractionEvent) *api.InteractionResponse {
+//			if ev.Data.InteractionType() == discord.CommandInteractionType {
+//				interaction := ev.Data.(*discord.CommandInteraction)
+//
+//				userID, err := ParseUserID(interaction.Options)
+//				if err != nil {
+//					return r.createInteractionErrorResponse(err)
+//				}
+//
+//				if !checkAccess(r.supportRoleID, ev.Member, userID) {
+//					return r.createInteractionErrorResponse(ErrNoAccess)
+//				}
+//			}
+//
+//			return next.HandleInteraction(ctx, ev)
+//		})
+//}
 
-				userID, err := ParseUserID(interaction.Options)
-				if err != nil {
-					return r.createInteractionErrorResponse(err)
-				}
-
-				if !checkAccess(r.supportRoleID, ev.Member, userID) {
-					return r.createInteractionErrorResponse(ErrNoAccess)
-				}
-			}
-
-			return next.HandleInteraction(ctx, ev)
-		})
-}
-
-func (r *resource) createInteractionErrorResponse(err error) *api.InteractionResponse {
-	return &api.InteractionResponse{
-		Type: api.MessageInteractionWithSource,
-		Data: r.send(err.Error()),
-	}
-}
+//func (r *resource) createInteractionErrorResponse(err error) *api.InteractionResponse {
+//	return &api.InteractionResponse{
+//		Type: api.MessageInteractionWithSource,
+//		Data: r.send(err.Error()),
+//	}
+//}
 
 func (r *resource) send(msg string) *api.InteractionResponseData {
 	return &api.InteractionResponseData{Content: option.NewNullableString(msg)}
