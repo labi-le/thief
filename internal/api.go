@@ -49,11 +49,11 @@ var (
 
 var (
 	// regexpName валидация имени пользователя (только буквы)
-	regexpName = regexp.MustCompile(`^[a-zA-Zа-яА-Я-]{1,50}$`)
+	regexpName = regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ-]{1,50}$`)
 	// regexpLocation валидация местоположения пользователя (только буквы, тире, пробелы)
-	regexpLocation = regexp.MustCompile(`^[a-zA-Zа-яА-Я]+(?:[ -][a-zA-Zа-яА-Я]+)*$`)
+	regexpLocation = regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ]+(?:[ -][a-zA-Zа-яА-ЯёЁ]+)*$`)
 	// regexpHobbies валидация хобби пользователя (например "рисование, игра на гитаре, видеоигры, anime")
-	regexpText = regexp.MustCompile(`^[a-zA-Zа-яА-Я\s,]+$`)
+	regexpText = regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,]+$`)
 )
 
 func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserService, conf Config) {
