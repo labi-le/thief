@@ -44,7 +44,7 @@ var (
 	ErrNoAccess     = errors.New("У вас нет доступа к этой команде")
 	ErrFormNotFound = errors.New("Анкета не найдена")
 
-	ErrValidateForm = errors.New("Форма не соответствует регулярному выражению")
+	ErrValidateForm = errors.New("Некорректное значение для поля %s. Ожидаемый формат: %s")
 )
 
 var (
@@ -377,35 +377,60 @@ func ParseUser(opt discord.CommandInteractionOptions) (User, error) {
 
 	name := strings.TrimSpace(opt.Find(NameTag).String())
 	if !regexpName.MatchString(name) {
-		return user, errors.Wrap(ErrValidateForm, NameTag)
+		err := errors.Errorf(
+			ErrValidateForm.Error(),
+			NameTag,
+			regexpName.String(),
+		)
+		return user, err
 	}
 
 	user.Name = name
 
 	location := strings.TrimSpace(opt.Find(LocationTag).String())
 	if !regexpLocation.MatchString(location) {
-		return user, errors.Wrap(ErrValidateForm, LocationTag)
+		err := errors.Errorf(
+			ErrValidateForm.Error(),
+			LocationTag,
+			regexpLocation.String(),
+		)
+		return user, err
 	}
 
 	user.Location = location
 
 	hobbies := strings.TrimSpace(opt.Find(HobbiesTag).String())
 	if !regexpText.MatchString(hobbies) {
-		return user, errors.Wrap(ErrValidateForm, HobbiesTag)
+		err := errors.Errorf(
+			ErrValidateForm.Error(),
+			HobbiesTag,
+			regexpText.String(),
+		)
+		return user, err
 	}
 
 	user.Hobbies = hobbies
 
 	occupation := strings.TrimSpace(opt.Find(OccupationTag).String())
 	if !regexpText.MatchString(occupation) {
-		return user, errors.Wrap(ErrValidateForm, OccupationTag)
+		err := errors.Errorf(
+			ErrValidateForm.Error(),
+			OccupationTag,
+			regexpText.String(),
+		)
+		return user, err
 	}
 
 	user.Occupation = occupation
 
 	goals := strings.TrimSpace(opt.Find(GoalsTag).String())
 	if !regexpText.MatchString(goals) {
-		return user, errors.Wrap(ErrValidateForm, GoalsTag)
+		err := errors.Errorf(
+			ErrValidateForm.Error(),
+			GoalsTag,
+			regexpText.String(),
+		)
+		return user, err
 	}
 
 	user.Goals = goals
