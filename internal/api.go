@@ -187,7 +187,7 @@ func (r *resource) Help(_ context.Context, _ cmdroute.CommandData) *api.Interact
 
 *создание\\изменение возможно только для своего профиля. модераторы могут удалять\\изменять анкеты других пользователей*
 
-||**` + BuildVersion() + `**||`
+**` + BuildVersion() + `**`
 
 	return r.send(msg)
 }
