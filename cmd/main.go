@@ -33,6 +33,8 @@ func main() {
 
 	logger.Infof("config: %v", conf)
 
+	logger.Infof("version: %s", internal.BuildVersion())
+
 	logger.Info("init bot")
 	bot := state.New("Bot " + conf.AccessToken)
 	bot.AddIntents(

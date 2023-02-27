@@ -3,18 +3,28 @@ CONTOUR = dev
 include .env.$(CONTOUR)
 export $(shell sed 's/=.*//' .env.$(CONTOUR))
 
-PROJ_NAME = thief
+PACKAGE = thief
 
 MAIN_PATH = cmd/main.go
 BUILD_PATH = build/package/
 
 .DEFAULT_GOAL := run
 
-run:
-	go run $(MAIN_PATH)
+VERSION=$(shell git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null | sed 's/^.//')
+COMMIT_HASH=$(shell git rev-parse --short HEAD)
+BUILD_TIMESTAMP=$(shell date '+%Y-%m-%dT%H:%M:%S')
 
-build: clean
-	go build --ldflags '-extldflags "-static"' -v -o $(BUILD_PATH)$(PROJ_NAME) $(MAIN_PATH)
+LDFLAGS=-ldflags="-X '${PACKAGE}/internal.Version=${VERSION}' \
+                   -X '${PACKAGE}/internal.CommitHash=${COMMIT_HASH}' \
+                   -X '${PACKAGE}/internal.BuildTime=${BUILD_TIMESTAMP}' \
+                   -extldflags -static"
+
+build:clean
+	go build ${LDFLAGS} -v -o $(BUILD_PATH)$(PACKAGE) $(MAIN_PATH)
+
+run:
+	#go run $(MAIN_PATH)
+	 ./build/package/thief
 
 clean:
 	rm -rf $(BUILD_PATH)*
