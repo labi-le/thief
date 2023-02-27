@@ -1,24 +1,28 @@
-FROM golang:1.19 as modules
+FROM golang:alpine AS builder
 
-ADD go.mod go.sum /m/
-RUN cd /m && go mod download
+# Установка Git и других зависимостей сборки
+RUN apk add git make
 
-FROM golang:1.19 as builder
-
-COPY --from=modules /go/pkg /go/pkg
-
-RUN mkdir -p /app
-COPY . /app
+# Рабочая директория внутри контейнера
 WORKDIR /app
 
-RUN go build --ldflags '-extldflags "-static"' -o thief cmd/main.go
+# Копирование исходного кода приложения внутрь контейнера
+COPY . .
 
-FROM busybox
+# Сборка приложения с помощью команды make build
+RUN make build
 
-RUN mkdir -p /built
-WORKDIR /built
+# Контейнер для запуска приложения
+FROM alpine:latest AS runner
 
-COPY --from=builder /app/thief /built/thief
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+# Установка зависимостей времени выполнения
+RUN apk add busybox ca-certificates
 
-ENTRYPOINT [ "./thief" ]
+# Рабочая директория внутри контейнера
+WORKDIR /app
+
+# Копирование бинарного файла из контейнера сборки в контейнер для запуска
+COPY --from=builder /app/build/package/thief .
+
+# Запуск приложения
+CMD ["./thief"]

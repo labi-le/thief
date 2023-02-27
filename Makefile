@@ -8,7 +8,6 @@ PACKAGE = thief
 MAIN_PATH = cmd/main.go
 BUILD_PATH = build/package/
 
-.DEFAULT_GOAL := run
 
 VERSION=$(shell git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null | sed 's/^.//')
 COMMIT_HASH=$(shell git rev-parse --short HEAD)
@@ -17,8 +16,9 @@ BUILD_TIMESTAMP=$(shell date '+%Y-%m-%dT%H:%M:%S')
 LDFLAGS=-ldflags="-X '${PACKAGE}/internal.Version=${VERSION}' \
                    -X '${PACKAGE}/internal.CommitHash=${COMMIT_HASH}' \
                    -X '${PACKAGE}/internal.BuildTime=${BUILD_TIMESTAMP}' \
-                   -extldflags -static"
+                   -extldflags '-static'"
 
+.DEFAULT_GOAL := build
 build:clean
 	go build ${LDFLAGS} -v -o $(BUILD_PATH)$(PACKAGE) $(MAIN_PATH)
 
