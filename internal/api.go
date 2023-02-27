@@ -8,6 +8,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/state"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
+	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"reflect"
@@ -39,7 +40,7 @@ const (
 )
 
 var (
-	ErrInvalidAge = errors.New("Столько люди не живут!")
+	ErrInvalidAge = errors.New("Некорректный возраст. Ожидаемый формат: число от 12 до 70")
 
 	ErrNoAccess     = errors.New("У вас нет доступа к этой команде")
 	ErrFormNotFound = errors.New("Анкета не найдена")
@@ -181,8 +182,11 @@ func (r *resource) Help(_ context.Context, _ cmdroute.CommandData) *api.Interact
 **/get** - получить анкету участника
 **/set** - добавить или изменить анкету
 **/delete** - удалить анкету
-**/help** - показать это сообщение`
+**/stats** - статистика
+**/help** - показать это сообщение
 
+*создание\\изменение возможно только для своего профиля. модераторы могут удалять\\изменять анкеты других пользователей*
+`
 	return r.send(msg)
 }
 
@@ -359,81 +363,83 @@ func makePrettyStructure(data interface{}) string {
 }
 
 func ParseUser(opt discord.CommandInteractionOptions) (User, error) {
-	user := User{}
+	var (
+		user           = User{}
+		errAccumulator error
+	)
 
 	id, parseIDErr := ParseUserID(opt)
 	if parseIDErr != nil {
-		return user, parseIDErr
+		errAccumulator = multierror.Append(errAccumulator, parseIDErr)
 	}
 
 	user.ID = id
 
-	age, _ := opt.Find(AgeTag).IntValue()
-	if age < 12 || age > 70 {
-		return user, ErrInvalidAge
+	age, err := opt.Find(AgeTag).IntValue()
+	if age < 12 || age > 70 || err != nil {
+		errAccumulator = multierror.Append(errAccumulator, ErrInvalidAge)
 	}
 
 	user.Age = int(age)
 
-	name := strings.TrimSpace(opt.Find(NameTag).String())
-	if !regexpName.MatchString(name) {
-		err := errors.Errorf(
-			ErrValidateForm.Error(),
-			NameTag,
-			regexpName.String(),
-		)
-		return user, err
+	if err := validateField(opt.Find(NameTag).String(), regexpName, NameTag, &user.Name); err != nil {
+		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	user.Name = name
-
-	location := strings.TrimSpace(opt.Find(LocationTag).String())
-	if !regexpLocation.MatchString(location) {
-		err := errors.Errorf(
-			ErrValidateForm.Error(),
-			LocationTag,
-			regexpLocation.String(),
-		)
-		return user, err
+	if err := validateField(opt.Find(LocationTag).String(), regexpLocation, LocationTag, &user.Location); err != nil {
+		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	user.Location = location
-
-	hobbies := strings.TrimSpace(opt.Find(HobbiesTag).String())
-	if !regexpText.MatchString(hobbies) {
-		err := errors.Errorf(
-			ErrValidateForm.Error(),
-			HobbiesTag,
-			regexpText.String(),
-		)
-		return user, err
+	if err := validateField(opt.Find(HobbiesTag).String(), regexpText, HobbiesTag, &user.Hobbies); err != nil {
+		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	user.Hobbies = hobbies
-
-	occupation := strings.TrimSpace(opt.Find(OccupationTag).String())
-	if !regexpText.MatchString(occupation) {
-		err := errors.Errorf(
-			ErrValidateForm.Error(),
-			OccupationTag,
-			regexpText.String(),
-		)
-		return user, err
+	if err := validateField(opt.Find(OccupationTag).String(), regexpText, OccupationTag, &user.Occupation); err != nil {
+		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	user.Occupation = occupation
-
-	goals := strings.TrimSpace(opt.Find(GoalsTag).String())
-	if !regexpText.MatchString(goals) {
-		err := errors.Errorf(
-			ErrValidateForm.Error(),
-			GoalsTag,
-			regexpText.String(),
-		)
-		return user, err
+	if err := validateField(opt.Find(GoalsTag).String(), regexpText, GoalsTag, &user.Goals); err != nil {
+		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	user.Goals = goals
+	if errAccumulator != nil {
+		errAccumulator.(*multierror.Error).ErrorFormat = errorFormatter
+	}
 
-	return user, nil
+	return user, errAccumulator
+}
+
+func validateField(field string, regex *regexp.Regexp, tag string, v any) error {
+	if reflect.ValueOf(v).Kind() != reflect.Ptr {
+		panic("v is not pointer")
+	}
+
+	field = strings.TrimSpace(field)
+
+	if !regex.MatchString(field) {
+		return errors.Errorf(
+			ErrValidateForm.Error(),
+			tag,
+			regex.String(),
+		)
+	}
+
+	v = field //nolint:ineffassign // dn
+
+	return nil
+}
+
+func errorFormatter(es []error) string {
+	if len(es) == 1 {
+		return fmt.Sprintf("Обнаружена ошибка:\n\t* %s\n\n", es[0])
+	}
+
+	points := make([]string, len(es))
+	for i, err := range es {
+		points[i] = fmt.Sprintf("* %s", err)
+	}
+
+	return fmt.Sprintf(
+		"%d ошибок обнаружено:\n\t%s\n\n",
+		len(es), strings.Join(points, "\n\t"))
 }
