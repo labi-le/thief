@@ -1,7 +1,7 @@
-CONTOUR = dev
-
-include .env.$(CONTOUR)
-export $(shell sed 's/=.*//' .env.$(CONTOUR))
+#CONTOUR = dev
+#
+#include .env.$(CONTOUR)
+#export $(shell sed 's/=.*//' .env.$(CONTOUR))
 
 PACKAGE = thief
 
