@@ -22,9 +22,9 @@ LDFLAGS=-ldflags="-X '${PACKAGE}/internal.Version=${VERSION}' \
 build:clean
 	go build ${LDFLAGS} -v -o $(BUILD_PATH)$(PACKAGE) $(MAIN_PATH)
 
-run:
+#run:
 	#go run $(MAIN_PATH)
-	 ./build/package/thief
+	# ./build/package/thief
 
 clean:
 	rm -rf $(BUILD_PATH)*

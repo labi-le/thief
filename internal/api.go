@@ -412,8 +412,9 @@ func ParseUser(opt discord.CommandInteractionOptions) (User, error) {
 }
 
 func validateField(field string, regex *regexp.Regexp, tag string, v any) error {
-	if reflect.ValueOf(v).Kind() != reflect.Ptr {
-		panic("v is not pointer")
+	vPtr := reflect.ValueOf(v)
+	if vPtr.Kind() != reflect.Ptr || vPtr.IsNil() {
+		panic("v is not a valid pointer")
 	}
 
 	field = strings.TrimSpace(field)
@@ -426,7 +427,7 @@ func validateField(field string, regex *regexp.Regexp, tag string, v any) error 
 		)
 	}
 
-	v = field //nolint:ineffassign // dn
+	vPtr.Elem().SetString(field)
 
 	return nil
 }

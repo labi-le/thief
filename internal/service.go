@@ -52,10 +52,6 @@ func (s *service) GetUser(ctx context.Context, id UserID) (User, error) {
 }
 
 func (s *service) UpdateUser(ctx context.Context, user User) error {
-	u, _ := s.repo.GetUser(ctx, user.ID)
-	if u.ID == 0 {
-		return s.CreateUser(ctx, user)
-	}
 	return s.repo.UpdateUser(ctx, user)
 }
 
