@@ -48,13 +48,55 @@ var (
 	ErrValidateForm = errors.New("Некорректное значение для поля %s. Ожидаемый формат: %s")
 )
 
+type Field struct {
+	Name    string
+	Tag     string
+	Regexp  *regexp.Regexp
+	Example any
+}
+
 var (
+	nameField = Field{
+		Name:    "Имя",
+		Tag:     NameTag,
+		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ-]{1,50}$`),
+		Example: "Анастасия",
+	}
+
+	locationField = Field{
+		Name:    "Город проживания",
+		Tag:     LocationTag,
+		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ]+(?:[ -][a-zA-Zа-яА-ЯёЁ]+)*$`),
+		Example: "Екатеринбург",
+	}
+
+	hobbiesField = Field{
+		Name:    "Хобби",
+		Tag:     HobbiesTag,
+		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
+		Example: "рисование, игра на гитаре, видеоигры, anime",
+	}
+
+	occupationField = Field{
+		Name:    "Род деятельности",
+		Tag:     OccupationTag,
+		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
+		Example: "работаю",
+	}
+
+	goalsField = Field{
+		Name:    "Цели",
+		Tag:     GoalsTag,
+		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
+		Example: "познакомиться с новыми людьми",
+	}
+
 	// regexpName валидация имени пользователя (только буквы)
-	regexpName = regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ-]{1,50}$`)
+	//regexpName = regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ-]{1,50}$`)
 	// regexpLocation валидация местоположения пользователя (только буквы, тире, пробелы)
-	regexpLocation = regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ]+(?:[ -][a-zA-Zа-яА-ЯёЁ]+)*$`)
+	//regexpLocation = regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ]+(?:[ -][a-zA-Zа-яА-ЯёЁ]+)*$`)
 	// regexpHobbies валидация хобби пользователя (например "рисование, игра на гитаре, видеоигры с кем-нибудь, anime")
-	regexpText = regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`)
+	//regexpText = regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`)
 )
 
 func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserService, conf Config) {
@@ -384,23 +426,23 @@ func ParseUser(opt discord.CommandInteractionOptions) (User, error) {
 
 	user.Age = int(age)
 
-	if err := validateField(opt.Find(NameTag).String(), regexpName, NameTag, &user.Name); err != nil {
+	if err := validateField(nameField, opt, &user.Name); err != nil {
 		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	if err := validateField(opt.Find(LocationTag).String(), regexpLocation, LocationTag, &user.Location); err != nil {
+	if err := validateField(locationField, opt, &user.Location); err != nil {
 		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	if err := validateField(opt.Find(HobbiesTag).String(), regexpText, HobbiesTag, &user.Hobbies); err != nil {
+	if err := validateField(hobbiesField, opt, &user.Hobbies); err != nil {
 		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	if err := validateField(opt.Find(OccupationTag).String(), regexpText, OccupationTag, &user.Occupation); err != nil {
+	if err := validateField(occupationField, opt, &user.Occupation); err != nil {
 		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	if err := validateField(opt.Find(GoalsTag).String(), regexpText, GoalsTag, &user.Goals); err != nil {
+	if err := validateField(goalsField, opt, &user.Goals); err != nil {
 		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
@@ -411,19 +453,19 @@ func ParseUser(opt discord.CommandInteractionOptions) (User, error) {
 	return user, errAccumulator
 }
 
-func validateField(field string, regex *regexp.Regexp, tag string, v any) error {
+func validateField(f Field, opt discord.CommandInteractionOptions, v any) error {
 	vPtr := reflect.ValueOf(v)
 	if vPtr.Kind() != reflect.Ptr || vPtr.IsNil() {
 		panic("v is not a valid pointer")
 	}
 
-	field = strings.TrimSpace(field)
+	field := strings.TrimSpace(opt.Find(f.Tag).String())
 
-	if !regex.MatchString(field) {
+	if !f.Regexp.MatchString(field) {
 		return errors.Errorf(
 			ErrValidateForm.Error(),
-			tag,
-			regex.String(),
+			f.Tag,
+			f.Regexp.String(),
 		)
 	}
 
