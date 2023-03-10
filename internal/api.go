@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"thief/pkg/validator"
 	"time"
 )
 
@@ -44,47 +45,38 @@ var (
 
 	ErrNoAccess     = errors.New("У вас нет доступа к этой команде")
 	ErrFormNotFound = errors.New("Анкета не найдена")
-
-	ErrValidateForm = errors.New("Некорректное значение для поля %s. Ожидаемый формат: %s")
 )
 
-type Field struct {
-	Name    string
-	Tag     string
-	Regexp  *regexp.Regexp
-	Example any
-}
-
 var (
-	nameField = Field{
+	nameField = validator.Field{
 		Name:    "Имя",
 		Tag:     NameTag,
 		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ-]{1,50}$`),
 		Example: "Анастасия",
 	}
 
-	locationField = Field{
+	locationField = validator.Field{
 		Name:    "Город проживания",
 		Tag:     LocationTag,
 		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ]+(?:[ -][a-zA-Zа-яА-ЯёЁ]+)*$`),
 		Example: "Екатеринбург",
 	}
 
-	hobbiesField = Field{
+	hobbiesField = validator.Field{
 		Name:    "Хобби",
 		Tag:     HobbiesTag,
 		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
 		Example: "рисование, игра на гитаре, видеоигры, anime",
 	}
 
-	occupationField = Field{
+	occupationField = validator.Field{
 		Name:    "Род деятельности",
 		Tag:     OccupationTag,
 		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
 		Example: "работаю",
 	}
 
-	goalsField = Field{
+	goalsField = validator.Field{
 		Name:    "Цели",
 		Tag:     GoalsTag,
 		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
@@ -426,23 +418,23 @@ func ParseUser(opt discord.CommandInteractionOptions) (User, error) {
 
 	user.Age = int(age)
 
-	if err := validateField(nameField, opt, &user.Name); err != nil {
+	if err := validator.ValidateDiscord(nameField, opt, &user.Name); err != nil {
 		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	if err := validateField(locationField, opt, &user.Location); err != nil {
+	if err := validator.ValidateDiscord(locationField, opt, &user.Location); err != nil {
 		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	if err := validateField(hobbiesField, opt, &user.Hobbies); err != nil {
+	if err := validator.ValidateDiscord(hobbiesField, opt, &user.Hobbies); err != nil {
 		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	if err := validateField(occupationField, opt, &user.Occupation); err != nil {
+	if err := validator.ValidateDiscord(occupationField, opt, &user.Occupation); err != nil {
 		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	if err := validateField(goalsField, opt, &user.Goals); err != nil {
+	if err := validator.ValidateDiscord(goalsField, opt, &user.Goals); err != nil {
 		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
@@ -451,27 +443,6 @@ func ParseUser(opt discord.CommandInteractionOptions) (User, error) {
 	}
 
 	return user, errAccumulator
-}
-
-func validateField(f Field, opt discord.CommandInteractionOptions, v any) error {
-	vPtr := reflect.ValueOf(v)
-	if vPtr.Kind() != reflect.Ptr || vPtr.IsNil() {
-		panic("v is not a valid pointer")
-	}
-
-	field := strings.TrimSpace(opt.Find(f.Tag).String())
-
-	if !f.Regexp.MatchString(field) {
-		return errors.Errorf(
-			ErrValidateForm.Error(),
-			f.Tag,
-			f.Regexp.String(),
-		)
-	}
-
-	vPtr.Elem().SetString(field)
-
-	return nil
 }
 
 func errorFormatter(es []error) string {
