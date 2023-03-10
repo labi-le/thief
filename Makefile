@@ -19,18 +19,14 @@ LDFLAGS=-ldflags="-X '${PACKAGE}/internal.Version=${VERSION}' \
                    -extldflags '-static'"
 
 .DEFAULT_GOAL := build
-build:clean
+build: clean tests
 	go build ${LDFLAGS} -v -o $(BUILD_PATH)$(PACKAGE) $(MAIN_PATH)
 
-#run:
-	#go run $(MAIN_PATH)
-	# ./build/package/thief
-
 clean:
-	rm -rf $(BUILD_PATH)*
+	@rm -rf $(BUILD_PATH)*
 
 tests:
-	go test ./...
+	@go test ./...
 
 lint:
 	golangci-lint run

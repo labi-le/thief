@@ -59,7 +59,12 @@ func main() {
 
 	logger.Info("init job")
 	service := MustStateService(conf, ur, bot)
-	go service.RunJob(ctx)
+	go func() {
+		err := service.RunJob(ctx)
+		if err != nil {
+			logger.Error(errors.Wrap(err, "failed to run job"))
+		}
+	}()
 
 	<-ctx.Done()
 }
