@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"reflect"
-	"regexp"
 	"strings"
 	"thief/pkg/validator"
 	"time"
@@ -31,7 +30,7 @@ type resource struct {
 }
 
 const (
-	UserTag       = "user"
+	UsernameTag   = "username"
 	AgeTag        = "age"
 	NameTag       = "name"
 	LocationTag   = "location"
@@ -42,53 +41,65 @@ const (
 )
 
 var (
-	ErrInvalidAge = errors.New("Некорректный возраст. Ожидаемый формат: число от 12 до 70")
-
 	ErrNoAccess     = errors.New("У вас нет доступа к этой команде")
 	ErrFormNotFound = errors.New("Анкета не найдена")
 	ErrNotFound     = errors.New("По вашему запросу ничего не найдено")
 )
 
 var (
+	nicknameField = validator.Field{
+		Name:    "Никнейм",
+		Tag:     UsernameTag,
+		IsValid: validator.IsUint64,
+		Example: "<@465805471786336256>",
+	}
+
 	nameField = validator.Field{
 		Name:    "Имя",
 		Tag:     NameTag,
-		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ-]{1,50}$`),
+		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ-]{1,50}$`),
 		Example: "Анастасия",
+	}
+
+	ageField = validator.Field{
+		Name:    "Возраст",
+		Tag:     AgeTag,
+		IsValid: validator.RangeInt(12, 70),
+		Example: "От 12 до 70",
 	}
 
 	locationField = validator.Field{
 		Name:    "Город проживания",
 		Tag:     LocationTag,
-		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ]+(?:[ -][a-zA-Zа-яА-ЯёЁ]+)*$`),
+		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ]+(?:[ -][a-zA-Zа-яА-ЯёЁ]+)*$`),
 		Example: "Екатеринбург",
 	}
 
 	hobbiesField = validator.Field{
 		Name:    "Хобби",
 		Tag:     HobbiesTag,
-		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
+		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
 		Example: "рисование, игра на гитаре, видеоигры, anime",
 	}
 
 	occupationField = validator.Field{
-		Name:    "Род деятельности",
+		Name:    "Род деятельности (учеба, работа)",
 		Tag:     OccupationTag,
-		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
+		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
 		Example: "работаю",
 	}
 
 	goalsField = validator.Field{
 		Name:    "Цели",
 		Tag:     GoalsTag,
-		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
+		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
 		Example: "познакомиться с новыми людьми",
 	}
 
 	keywordField = validator.Field{
 		Name:    "Ключевые слова",
 		Tag:     KeywordTag,
-		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
+		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
 		Example: "общение",
 	}
 )
@@ -135,44 +146,44 @@ func getInlineCommands() []api.CreateCommandData {
 
 			Options: []discord.CommandOption{
 				&discord.UserOption{
-					OptionName:  UserTag,
+					OptionName:  UsernameTag,
 					Description: "Никнейм",
 					Required:    true,
 				},
 
 				&discord.StringOption{
-					OptionName:  NameTag,
-					Description: "Имя",
+					OptionName:  nameField.Tag,
+					Description: nameField.Name,
 					Required:    true,
 				},
 
 				&discord.IntegerOption{
-					OptionName:  AgeTag,
-					Description: "Возраст",
+					OptionName:  ageField.Tag,
+					Description: ageField.Name,
 					Required:    true,
 				},
 
 				&discord.StringOption{
-					OptionName:  LocationTag,
-					Description: "Город проживания",
+					OptionName:  locationField.Tag,
+					Description: locationField.Name,
 					Required:    true,
 				},
 
 				&discord.StringOption{
-					OptionName:  HobbiesTag,
-					Description: "Увлечения",
+					OptionName:  hobbiesField.Tag,
+					Description: hobbiesField.Name,
 					Required:    true,
 				},
 
 				&discord.StringOption{
-					OptionName:  OccupationTag,
-					Description: "Род деятельности (учеба, работа)",
+					OptionName:  occupationField.Tag,
+					Description: occupationField.Name,
 					Required:    true,
 				},
 
 				&discord.StringOption{
-					OptionName:  GoalsTag,
-					Description: "Цели",
+					OptionName:  goalsField.Tag,
+					Description: goalsField.Name,
 					Required:    true,
 				},
 			},
@@ -184,7 +195,7 @@ func getInlineCommands() []api.CreateCommandData {
 
 			Options: []discord.CommandOption{
 				&discord.UserOption{
-					OptionName:  UserTag,
+					OptionName:  UsernameTag,
 					Description: "Никнейм",
 					Required:    true,
 				},
@@ -197,7 +208,7 @@ func getInlineCommands() []api.CreateCommandData {
 
 			Options: []discord.CommandOption{
 				&discord.StringOption{
-					OptionName:  KeywordTag,
+					OptionName:  keywordField.Tag,
 					Description: "Ключевые слова",
 					Required:    true,
 				},
@@ -209,7 +220,7 @@ func getInlineCommands() []api.CreateCommandData {
 			Description: "Удалить анкету пользователя",
 			Options: []discord.CommandOption{
 				&discord.UserOption{
-					OptionName:  UserTag,
+					OptionName:  UsernameTag,
 					Description: "Никнейм",
 					Required:    true,
 				},
@@ -302,7 +313,7 @@ func ParseKeyword(options discord.CommandInteractionOptions) (string, error) {
 }
 
 func ParseUserID(data discord.CommandInteractionOptions) (UserID, error) {
-	value, err := data.Find(UserTag).SnowflakeValue()
+	value, err := data.Find(UsernameTag).SnowflakeValue()
 	return UserID(value), err
 }
 
@@ -426,7 +437,7 @@ func (r *resource) sendSilent(msg string) *api.InteractionResponseData {
 
 // makePrettyStructure
 // pretty marshal
-func makePrettyStructure(data interface{}) string {
+func makePrettyStructure(data any) string {
 	v := reflect.ValueOf(data)
 	t := v.Type()
 
@@ -478,19 +489,20 @@ func ParseUser(opt discord.CommandInteractionOptions) (User, error) {
 		errAccumulator error
 	)
 
-	id, parseIDErr := ParseUserID(opt)
-	if parseIDErr != nil {
-		errAccumulator = multierror.Append(errAccumulator, parseIDErr)
+	//id, parseIDErr := ParseUserID(opt)
+	//if parseIDErr != nil {
+	//	errAccumulator = multierror.Append(errAccumulator, parseIDErr)
+	//}
+
+	//user.ID = id
+
+	if err := validator.ValidateDiscord(nicknameField, opt, &user.ID); err != nil {
+		errAccumulator = multierror.Append(errAccumulator, err)
 	}
 
-	user.ID = id
-
-	age, err := opt.Find(AgeTag).IntValue()
-	if age < 12 || age > 70 || err != nil {
-		errAccumulator = multierror.Append(errAccumulator, ErrInvalidAge)
+	if err := validator.ValidateDiscord(ageField, opt, &user.Age); err != nil {
+		errAccumulator = multierror.Append(errAccumulator, err)
 	}
-
-	user.Age = int(age)
 
 	if err := validator.ValidateDiscord(nameField, opt, &user.Name); err != nil {
 		errAccumulator = multierror.Append(errAccumulator, err)

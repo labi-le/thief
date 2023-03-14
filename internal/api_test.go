@@ -24,7 +24,7 @@ func TestParseUser(t *testing.T) {
 	opt := discord.CommandInteractionOptions{
 		discord.CommandInteractionOption{
 			Type:  discord.UserOptionType,
-			Name:  "user",
+			Name:  "username",
 			Value: json.Raw(idConv),
 		},
 
