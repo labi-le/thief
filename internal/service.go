@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"crypto/md5"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/state"
@@ -18,6 +19,8 @@ type UserService interface {
 	PrettyStats(ctx context.Context) (PrettyStats, error)
 
 	AddRole(guildID discord.GuildID, id UserID, roleID RoleID) error
+
+	SearchByKeyword(ctx context.Context, search string) ([]User, error)
 }
 
 type service struct {
@@ -60,7 +63,8 @@ func (s *service) DeleteUser(ctx context.Context, id UserID) error {
 }
 
 const (
-	StatsCache = "stats"
+	StatsCache           = "stats"
+	SearchByKeywordCache = "search-by-keyword-"
 )
 
 const (
@@ -76,6 +80,22 @@ func (s *service) PrettyStats(ctx context.Context) (PrettyStats, error) {
 		return stats, err
 	}
 	return v.(PrettyStats), nil
+}
+
+func (s *service) SearchByKeyword(ctx context.Context, search string) ([]User, error) {
+	hash := md5.New().Sum([]byte(search))
+	cacheKey := SearchByKeywordCache + string(hash)
+
+	var users []User
+	v, err := s.cacheGetOrSet(cacheKey, func() (any, error) {
+		return s.repo.SearchForAllColumns(ctx, search)
+	}, FiveMinute)
+
+	if err != nil {
+		return users, err
+	}
+
+	return v.([]User), nil
 }
 
 func (s *service) cacheGetOrSet(k string, fn func() (any, error), d time.Duration) (any, error) {

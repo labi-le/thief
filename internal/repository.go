@@ -15,6 +15,7 @@ type UserRepository interface {
 	DeleteUsers(ctx context.Context, id ...UserID) error
 	All(ctx context.Context) ([]User, error)
 	PrettyStats(ctx context.Context) (PrettyStats, error)
+	SearchForAllColumns(ctx context.Context, search string) ([]User, error)
 }
 
 func NewUserRepository(db *sql.DB) UserRepository {
@@ -23,6 +24,45 @@ func NewUserRepository(db *sql.DB) UserRepository {
 
 type repository struct {
 	db *sql.DB
+}
+
+func (r *repository) SearchForAllColumns(ctx context.Context, search string) ([]User, error) {
+	var (
+		users []User
+	)
+
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT *
+FROM users
+WHERE location || hobbies || name || occupation || goals LIKE ?`, "%"+search+"%")
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			u       User
+			rawTime int64
+		)
+		err := rows.Scan(
+			&u.ID, &u.Name, &u.Age, &u.Location, &u.Hobbies, &u.Occupation, &u.Goals, &u.AddedBy, &rawTime)
+		if err != nil {
+			return nil, err
+		}
+
+		u.CreatedAt = time.Unix(rawTime, 0)
+
+		users = append(users, u)
+	}
+
+	if len(users) == 0 {
+		return users, sql.ErrNoRows
+	}
+
+	return users, nil
 }
 
 func (r *repository) All(ctx context.Context) ([]User, error) {

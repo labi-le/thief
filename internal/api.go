@@ -38,6 +38,7 @@ const (
 	HobbiesTag    = "hobbies"
 	OccupationTag = "occupation"
 	GoalsTag      = "goals"
+	KeywordTag    = "keyword"
 )
 
 var (
@@ -45,6 +46,7 @@ var (
 
 	ErrNoAccess     = errors.New("У вас нет доступа к этой команде")
 	ErrFormNotFound = errors.New("Анкета не найдена")
+	ErrNotFound     = errors.New("По вашему запросу ничего не найдено")
 )
 
 var (
@@ -83,12 +85,12 @@ var (
 		Example: "познакомиться с новыми людьми",
 	}
 
-	// regexpName валидация имени пользователя (только буквы)
-	//regexpName = regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ-]{1,50}$`)
-	// regexpLocation валидация местоположения пользователя (только буквы, тире, пробелы)
-	//regexpLocation = regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ]+(?:[ -][a-zA-Zа-яА-ЯёЁ]+)*$`)
-	// regexpHobbies валидация хобби пользователя (например "рисование, игра на гитаре, видеоигры с кем-нибудь, anime")
-	//regexpText = regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`)
+	keywordField = validator.Field{
+		Name:    "Ключевые слова",
+		Tag:     KeywordTag,
+		Regexp:  regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
+		Example: "общение",
+	}
 )
 
 func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserService, conf Config) {
@@ -114,6 +116,7 @@ func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserServi
 	res.AddFunc("stats", res.Stats)
 	res.AddFunc("help", res.Help)
 	res.AddFunc("get", res.Get)
+	res.AddFunc("search", res.Search)
 
 	//res.Use(res.CheckAccess)
 	res.AddFunc("set", res.Set)
@@ -174,6 +177,7 @@ func getInlineCommands() []api.CreateCommandData {
 				},
 			},
 		},
+
 		{
 			Name:        "get",
 			Description: "Получить анкету пользователя",
@@ -186,6 +190,20 @@ func getInlineCommands() []api.CreateCommandData {
 				},
 			},
 		},
+
+		{
+			Name:        "search",
+			Description: "Поиск анкеты пользователя по ключевым словам",
+
+			Options: []discord.CommandOption{
+				&discord.StringOption{
+					OptionName:  KeywordTag,
+					Description: "Ключевые слова",
+					Required:    true,
+				},
+			},
+		},
+
 		{
 			Name:        "delete",
 			Description: "Удалить анкету пользователя",
@@ -214,12 +232,14 @@ func (r *resource) Help(_ context.Context, _ cmdroute.CommandData) *api.Interact
 	msg := `**Thief** - честный хранитель анкет
 
 **/get** - получить анкету участника
+**/search** - поиск анкет по ключевым словам
 **/set** - добавить или изменить анкету
 **/delete** - удалить анкету
 **/stats** - статистика
 **/help** - показать это сообщение
 
 *создание\\изменение возможно только для своего профиля. модераторы могут удалять\\изменять анкеты других пользователей*
+*после удалении анкеты юзер теряет роль участника, также после того как юзер выходит — анкета удаляется*
 
 **` + BuildVersion() + `**`
 
@@ -239,6 +259,46 @@ func (r *resource) Get(ctx context.Context, data cmdroute.CommandData) *api.Inte
 	}
 
 	return r.sendSilent(makePrettyStructure(user))
+}
+
+func (r *resource) Search(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+	parsed, parsErr := ParseKeyword(data.Options)
+	if parsErr != nil {
+		return r.send(parsErr.Error())
+	}
+
+	users, err := r.service.SearchByKeyword(ctx, parsed)
+	if err != nil {
+		return r.send(ErrNotFound.Error())
+	}
+
+	return r.sendSilent(maxLengthCorrector(makePrettyUserSlice, users))
+}
+
+func maxLengthCorrector(prettier func(data []User) string, users []User) string {
+	text := prettier(users)
+	if len(text) > 2000 {
+		text = maxLengthCorrector(prettier, users[:len(users)-1])
+	}
+
+	return text
+}
+
+func ParseKeyword(options discord.CommandInteractionOptions) (string, error) {
+	var (
+		keyword        string
+		errAccumulator error
+	)
+
+	if err := validator.ValidateDiscord(keywordField, options, &keyword); err != nil {
+		errAccumulator = multierror.Append(errAccumulator, err)
+	}
+
+	if errAccumulator != nil {
+		errAccumulator.(*multierror.Error).ErrorFormat = errorFormatter
+	}
+
+	return keyword, errAccumulator
 }
 
 func ParseUserID(data discord.CommandInteractionOptions) (UserID, error) {
@@ -312,18 +372,6 @@ func (r *resource) Delete(ctx context.Context, data cmdroute.CommandData) *api.I
 	return r.send("Анкета удалена")
 }
 
-func (r *resource) Stats(ctx context.Context, _ cmdroute.CommandData) *api.InteractionResponseData {
-	stats, err := r.service.PrettyStats(ctx)
-	if err != nil {
-		err = errors.Wrap(err, "failed to get stats")
-		r.log.Error(err)
-
-		return r.send("Не удалось получить статистику: " + err.Error())
-	}
-
-	return r.sendSilent(makePrettyStructure(stats))
-}
-
 //func (r *resource) CheckAccess(next cmdroute.InteractionHandler) cmdroute.InteractionHandler {
 //	return cmdroute.InteractionHandlerFunc(
 //		func(ctx context.Context, ev *discord.InteractionEvent) *api.InteractionResponse {
@@ -350,6 +398,18 @@ func (r *resource) Stats(ctx context.Context, _ cmdroute.CommandData) *api.Inter
 //		Data: r.send(err.Error()),
 //	}
 //}
+
+func (r *resource) Stats(ctx context.Context, _ cmdroute.CommandData) *api.InteractionResponseData {
+	stats, err := r.service.PrettyStats(ctx)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get stats")
+		r.log.Error(err)
+
+		return r.send("Не удалось получить статистику: " + err.Error())
+	}
+
+	return r.sendSilent(makePrettyStructure(stats))
+}
 
 func (r *resource) send(msg string) *api.InteractionResponseData {
 	return &api.InteractionResponseData{Content: option.NewNullableString(msg)}
@@ -393,6 +453,20 @@ func makePrettyStructure(data interface{}) string {
 		sb.WriteString(value)
 		sb.WriteString("\n")
 
+	}
+
+	return sb.String()
+}
+
+// makePrettyUserSlice
+// pretty marshal
+func makePrettyUserSlice(data []User) string {
+	var sb strings.Builder
+	sb.Grow(2560)
+
+	for _, structure := range data {
+		sb.WriteString(makePrettyStructure(structure))
+		sb.WriteString("\n")
 	}
 
 	return sb.String()
