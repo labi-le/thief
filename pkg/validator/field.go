@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-var ErrValidateForm = errors.New("Некорректное значение для поля %s. Ожидаемый формат: %s")
+var ErrValidateForm = errors.New("Некорректное значение для поля %s. Ожидаемый формат: %s. Пример: %s")
 
 type Field struct {
 	Name    string
@@ -24,13 +24,13 @@ func Validate(f Field, rawField string, v any) error {
 	}
 
 	field := strings.TrimSpace(rawField)
-	//field := strings.TrimSpace(rawField.Find(f.Tag).String())
 
 	if !f.Regexp.MatchString(field) {
 		return errors.Errorf(
 			ErrValidateForm.Error(),
 			f.Tag,
 			f.Regexp.String(),
+			f.Example,
 		)
 	}
 
