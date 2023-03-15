@@ -46,64 +46,6 @@ var (
 	ErrNotFound     = errors.New("По вашему запросу ничего не найдено")
 )
 
-var (
-	nicknameField = validator.Field{
-		Name:    "Никнейм",
-		Tag:     UsernameTag,
-		IsValid: validator.IsUint64,
-		Example: "<@465805471786336256>",
-	}
-
-	nameField = validator.Field{
-		Name:    "Имя",
-		Tag:     NameTag,
-		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ-]{1,50}$`),
-		Example: "Анастасия",
-	}
-
-	ageField = validator.Field{
-		Name:    "Возраст",
-		Tag:     AgeTag,
-		IsValid: validator.RangeInt(12, 70),
-		Example: "От 12 до 70",
-	}
-
-	locationField = validator.Field{
-		Name:    "Город проживания",
-		Tag:     LocationTag,
-		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ]+(?:[ -][a-zA-Zа-яА-ЯёЁ]+)*$`),
-		Example: "Екатеринбург",
-	}
-
-	hobbiesField = validator.Field{
-		Name:    "Хобби",
-		Tag:     HobbiesTag,
-		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
-		Example: "рисование, игра на гитаре, видеоигры, anime",
-	}
-
-	occupationField = validator.Field{
-		Name:    "Род деятельности (учеба, работа)",
-		Tag:     OccupationTag,
-		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
-		Example: "работаю",
-	}
-
-	goalsField = validator.Field{
-		Name:    "Цели",
-		Tag:     GoalsTag,
-		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
-		Example: "познакомиться с новыми людьми",
-	}
-
-	keywordField = validator.Field{
-		Name:    "Ключевые слова",
-		Tag:     KeywordTag,
-		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
-		Example: "общение",
-	}
-)
-
 func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserService, conf Config) {
 	me, err := bot.Me()
 	if err != nil {
@@ -129,9 +71,8 @@ func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserServi
 	res.AddFunc("get", res.Get)
 	res.AddFunc("search", res.Search)
 
-	//res.Use(res.CheckAccess)
-	res.AddFunc("set", res.Set)
-	res.AddFunc("delete", res.Delete)
+	res.AddFunc("set", res.CheckAccessMiddleware(res.Set))
+	res.AddFunc("delete", res.CheckAccessMiddleware(res.Delete))
 
 	if err := cmdroute.OverwriteCommands(bot, getInlineCommands()); err != nil {
 		panic(errors.Wrap(err, "failed to overwrite commands"))
@@ -222,10 +163,6 @@ func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.Inte
 		return r.send(parsErr.Error())
 	}
 
-	if !checkAccess(r.supportRoleID, data.Event.Member, parsed.ID) {
-		return r.send(ErrNoAccess.Error())
-	}
-
 	parsed.AddedBy = UserID(data.Event.Member.User.ID)
 	parsed.CreatedAt = time.Now()
 
@@ -267,10 +204,6 @@ func (r *resource) Delete(ctx context.Context, data cmdroute.CommandData) *api.I
 		return r.send(parsErr.Error())
 	}
 
-	if !checkAccess(r.supportRoleID, data.Event.Member, parsed) {
-		return r.send(ErrNoAccess.Error())
-	}
-
 	defer r.service.RemoveRole(data.Event.GuildID, parsed, r.memberRoleID...)
 
 	if err := r.service.DeleteUser(ctx, parsed); err != nil {
@@ -280,32 +213,12 @@ func (r *resource) Delete(ctx context.Context, data cmdroute.CommandData) *api.I
 	return r.send("Анкета удалена")
 }
 
-//func (r *resource) CheckAccess(next cmdroute.InteractionHandler) cmdroute.InteractionHandler {
-//	return cmdroute.InteractionHandlerFunc(
-//		func(ctx context.Context, ev *discord.InteractionEvent) *api.InteractionResponse {
-//			if ev.Data.InteractionType() == discord.CommandInteractionType {
-//				interaction := ev.Data.(*discord.CommandInteraction)
-//
-//				userID, err := ParseUserID(interaction.Options)
-//				if err != nil {
-//					return r.createInteractionErrorResponse(err)
-//				}
-//
-//				if !checkAccess(r.supportRoleID, ev.Member, userID) {
-//					return r.createInteractionErrorResponse(ErrNoAccess)
-//				}
-//			}
-//
-//			return next.HandleInteraction(ctx, ev)
-//		})
-//}
-
-//func (r *resource) createInteractionErrorResponse(err error) *api.InteractionResponse {
-//	return &api.InteractionResponse{
-//		Type: api.MessageInteractionWithSource,
-//		Data: r.send(err.Error()),
-//	}
-//}
+func (r *resource) createInteractionErrorResponse(err error) *api.InteractionResponse {
+	return &api.InteractionResponse{
+		Type: api.MessageInteractionWithSource,
+		Data: r.send(err.Error()),
+	}
+}
 
 func (r *resource) Stats(ctx context.Context, _ cmdroute.CommandData) *api.InteractionResponseData {
 	stats, err := r.service.PrettyStats(ctx)
@@ -329,6 +242,23 @@ func (r *resource) sendSilent(msg string) *api.InteractionResponseData {
 		AllowedMentions: &api.AllowedMentions{
 			Parse: []api.AllowedMentionType{},
 		},
+	}
+}
+
+func (r *resource) CheckAccessMiddleware(fn cmdroute.CommandHandlerFunc) cmdroute.CommandHandlerFunc {
+	return func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+		interaction := data.Event.Data.(*discord.CommandInteraction)
+
+		userID, err := ParseUserID(interaction.Options)
+		if err != nil {
+			return r.send(err.Error())
+		}
+
+		if !checkAccess(r.supportRoleID, data.Event.Member, userID) {
+			return r.send(ErrNoAccess.Error())
+		}
+
+		return fn(ctx, data)
 	}
 }
 
