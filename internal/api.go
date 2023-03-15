@@ -2,17 +2,14 @@ package internal
 
 import (
 	"context"
-	"fmt"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/state"
-	"github.com/diamondburned/arikawa/v3/utils/json/option"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"reflect"
-	"strings"
+	"thief/pkg/formatter"
 	"thief/pkg/validator"
 	"time"
 )
@@ -109,7 +106,7 @@ func (r *resource) Get(ctx context.Context, data cmdroute.CommandData) *api.Inte
 		return r.send(ErrFormNotFound.Error())
 	}
 
-	return r.sendSilent(makePrettyStructure(user))
+	return r.sendSilent(formatter.PrettyStructure(user))
 }
 
 func (r *resource) Search(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
@@ -123,7 +120,7 @@ func (r *resource) Search(ctx context.Context, data cmdroute.CommandData) *api.I
 		return r.send(ErrNotFound.Error())
 	}
 
-	return r.sendSilent(maxLengthCorrector(makePrettyUserSlice, users))
+	return r.sendSilent(maxLengthCorrector(PrettySlice, users))
 }
 
 func maxLengthCorrector(prettier func(data []User) string, users []User) string {
@@ -146,15 +143,10 @@ func ParseKeyword(options discord.CommandInteractionOptions) (string, error) {
 	}
 
 	if errAccumulator != nil {
-		errAccumulator.(*multierror.Error).ErrorFormat = errorFormatter
+		errAccumulator.(*multierror.Error).ErrorFormat = formatter.Error
 	}
 
 	return keyword, errAccumulator
-}
-
-func ParseUserID(data discord.CommandInteractionOptions) (UserID, error) {
-	value, err := data.Find(UsernameTag).SnowflakeValue()
-	return UserID(value), err
 }
 
 func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
@@ -204,7 +196,12 @@ func (r *resource) Delete(ctx context.Context, data cmdroute.CommandData) *api.I
 		return r.send(parsErr.Error())
 	}
 
-	defer r.service.RemoveRole(data.Event.GuildID, parsed, r.memberRoleID...)
+	defer func(service UserService, guildID discord.GuildID, id UserID, roleID ...RoleID) {
+		err := service.RemoveRole(guildID, id, roleID...)
+		if err != nil {
+			r.log.Error(errors.Wrap(err, "failed to remove role"))
+		}
+	}(r.service, data.Event.GuildID, parsed, r.memberRoleID...)
 
 	if err := r.service.DeleteUser(ctx, parsed); err != nil {
 		r.log.Error(errors.Wrap(err, "failed to delete user"))
@@ -229,20 +226,7 @@ func (r *resource) Stats(ctx context.Context, _ cmdroute.CommandData) *api.Inter
 		return r.send("Не удалось получить статистику: " + err.Error())
 	}
 
-	return r.sendSilent(makePrettyStructure(stats))
-}
-
-func (r *resource) send(msg string) *api.InteractionResponseData {
-	return &api.InteractionResponseData{Content: option.NewNullableString(msg)}
-}
-
-func (r *resource) sendSilent(msg string) *api.InteractionResponseData {
-	return &api.InteractionResponseData{
-		Content: option.NewNullableString(msg),
-		AllowedMentions: &api.AllowedMentions{
-			Parse: []api.AllowedMentionType{},
-		},
-	}
+	return r.sendSilent(formatter.PrettyStructure(stats))
 }
 
 func (r *resource) CheckAccessMiddleware(fn cmdroute.CommandHandlerFunc) cmdroute.CommandHandlerFunc {
@@ -260,115 +244,4 @@ func (r *resource) CheckAccessMiddleware(fn cmdroute.CommandHandlerFunc) cmdrout
 
 		return fn(ctx, data)
 	}
-}
-
-// makePrettyStructure
-// pretty marshal
-func makePrettyStructure(data any) string {
-	v := reflect.ValueOf(data)
-	t := v.Type()
-
-	var sb strings.Builder
-	sb.Grow(512)
-
-	for i := 0; i < v.NumField(); i++ {
-		field, name := v.Field(i), t.Field(i).Name
-		value := fmt.Sprint(field.Interface())
-
-		switch discordTag := t.Field(i).Tag.Get("discord"); discordTag {
-		case "id":
-			value = fmt.Sprintf("<@%v>", field.Interface())
-		}
-
-		sb.WriteString("**")
-		if prettyTag := t.Field(i).Tag.Get("pretty"); prettyTag != "" {
-			sb.WriteString(prettyTag)
-		} else {
-			sb.WriteString(name)
-		}
-
-		sb.WriteString("**: ")
-		sb.WriteString(value)
-		sb.WriteString("\n")
-
-	}
-
-	return sb.String()
-}
-
-// makePrettyUserSlice
-// pretty marshal
-func makePrettyUserSlice(data []User) string {
-	var sb strings.Builder
-	sb.Grow(2560)
-
-	for _, structure := range data {
-		sb.WriteString(makePrettyStructure(structure))
-		sb.WriteString("\n")
-	}
-
-	return sb.String()
-}
-
-func ParseUser(opt discord.CommandInteractionOptions) (User, error) {
-	var (
-		user           = User{}
-		errAccumulator error
-	)
-
-	//id, parseIDErr := ParseUserID(opt)
-	//if parseIDErr != nil {
-	//	errAccumulator = multierror.Append(errAccumulator, parseIDErr)
-	//}
-
-	//user.ID = id
-
-	if err := validator.ValidateDiscord(nicknameField, opt, &user.ID); err != nil {
-		errAccumulator = multierror.Append(errAccumulator, err)
-	}
-
-	if err := validator.ValidateDiscord(ageField, opt, &user.Age); err != nil {
-		errAccumulator = multierror.Append(errAccumulator, err)
-	}
-
-	if err := validator.ValidateDiscord(nameField, opt, &user.Name); err != nil {
-		errAccumulator = multierror.Append(errAccumulator, err)
-	}
-
-	if err := validator.ValidateDiscord(locationField, opt, &user.Location); err != nil {
-		errAccumulator = multierror.Append(errAccumulator, err)
-	}
-
-	if err := validator.ValidateDiscord(hobbiesField, opt, &user.Hobbies); err != nil {
-		errAccumulator = multierror.Append(errAccumulator, err)
-	}
-
-	if err := validator.ValidateDiscord(occupationField, opt, &user.Occupation); err != nil {
-		errAccumulator = multierror.Append(errAccumulator, err)
-	}
-
-	if err := validator.ValidateDiscord(goalsField, opt, &user.Goals); err != nil {
-		errAccumulator = multierror.Append(errAccumulator, err)
-	}
-
-	if errAccumulator != nil {
-		errAccumulator.(*multierror.Error).ErrorFormat = errorFormatter
-	}
-
-	return user, errAccumulator
-}
-
-func errorFormatter(es []error) string {
-	if len(es) == 1 {
-		return fmt.Sprintf("Обнаружена ошибка:\n\t* %s\n\n", es[0])
-	}
-
-	points := make([]string, len(es))
-	for i, err := range es {
-		points[i] = fmt.Sprintf("* %s", err)
-	}
-
-	return fmt.Sprintf(
-		"%d ошибок обнаружено:\n\t%s\n\n",
-		len(es), strings.Join(points, "\n\t"))
 }
