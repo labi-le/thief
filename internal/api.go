@@ -6,11 +6,9 @@ import (
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/state"
-	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"thief/pkg/formatter"
-	"thief/pkg/validator"
 	"time"
 )
 
@@ -34,7 +32,10 @@ const (
 	HobbiesTag    = "hobbies"
 	OccupationTag = "occupation"
 	GoalsTag      = "goals"
-	KeywordTag    = "keyword"
+
+	KeywordTag       = "keyword"
+	KeywordOffsetTag = "offset"
+	KeywordLimitTag  = "limit"
 )
 
 var (
@@ -120,7 +121,9 @@ func (r *resource) Search(ctx context.Context, data cmdroute.CommandData) *api.I
 		return r.send(ErrNotFound.Error())
 	}
 
-	return r.sendSilent(maxLengthCorrector(PrettySlice, users))
+	Offset(parsed.Limit, parsed.Offset, &users)
+
+	return r.sendSilent(PrettySlice(users))
 }
 
 func maxLengthCorrector(prettier func(data []User) string, users []User) string {
@@ -130,23 +133,6 @@ func maxLengthCorrector(prettier func(data []User) string, users []User) string 
 	}
 
 	return text
-}
-
-func ParseKeyword(options discord.CommandInteractionOptions) (string, error) {
-	var (
-		keyword        string
-		errAccumulator error
-	)
-
-	if err := validator.ValidateDiscord(keywordField, options, &keyword); err != nil {
-		errAccumulator = multierror.Append(errAccumulator, err)
-	}
-
-	if errAccumulator != nil {
-		errAccumulator.(*multierror.Error).ErrorFormat = formatter.Error
-	}
-
-	return keyword, errAccumulator
 }
 
 func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {

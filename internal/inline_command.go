@@ -3,6 +3,7 @@ package internal
 import (
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/diamondburned/arikawa/v3/utils/json/option"
 )
 
 func getInlineCommands() []api.CreateCommandData {
@@ -76,8 +77,24 @@ func getInlineCommands() []api.CreateCommandData {
 			Options: []discord.CommandOption{
 				&discord.StringOption{
 					OptionName:  keywordField.Tag,
-					Description: "Ключевые слова",
+					Description: keywordField.Name,
 					Required:    true,
+				},
+
+				&discord.IntegerOption{
+					OptionName:  keywordLimitField.Tag,
+					Description: keywordLimitField.Name,
+					Required:    false,
+					Min:         option.NewInt(1),
+					Max:         option.NewInt(5),
+				},
+
+				&discord.IntegerOption{
+					OptionName:  keywordOffsetField.Tag,
+					Description: keywordOffsetField.Name,
+					Required:    false,
+					Min:         option.NewInt(1),
+					Max:         option.NewInt(100),
 				},
 			},
 		},

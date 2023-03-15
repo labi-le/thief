@@ -22,7 +22,7 @@ type UserService interface {
 	AddRole(guildID discord.GuildID, id UserID, roleID ...RoleID) error
 	RemoveRole(guildID discord.GuildID, id UserID, roleID ...RoleID) error
 
-	SearchByKeyword(ctx context.Context, search string) ([]User, error)
+	SearchByKeyword(ctx context.Context, search Keyword) ([]User, error)
 }
 
 type service struct {
@@ -109,13 +109,13 @@ func (s *service) PrettyStats(ctx context.Context) (PrettyStats, error) {
 	return v.(PrettyStats), nil
 }
 
-func (s *service) SearchByKeyword(ctx context.Context, search string) ([]User, error) {
-	hash := md5.New().Sum([]byte(search))
+func (s *service) SearchByKeyword(ctx context.Context, kw Keyword) ([]User, error) {
+	hash := md5.New().Sum([]byte(kw.Search))
 	cacheKey := SearchByKeywordCache + string(hash)
 
 	var users []User
 	v, err := s.cacheGetOrSet(cacheKey, func() (any, error) {
-		return s.repo.SearchForAllColumns(ctx, search)
+		return s.repo.SearchForAllColumns(ctx, kw.Search)
 	}, FiveMinute)
 
 	if err != nil {

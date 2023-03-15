@@ -38,3 +38,9 @@ type PrettyStats struct {
 	Under18          uint64 `json:"under_18" pretty:"Количество пользователей младше 18"`
 	Over18           uint64 `json:"over_18" pretty:"Количество пользователей старше 18"`
 }
+
+type Keyword struct {
+	Search string `json:"search"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+}

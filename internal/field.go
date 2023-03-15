@@ -51,11 +51,27 @@ var (
 		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
 		Example: "познакомиться с новыми людьми",
 	}
+)
 
+var (
 	keywordField = validator.Field{
 		Name:    "Ключевые слова",
 		Tag:     KeywordTag,
 		IsValid: validator.RegexValidate(`^[a-zA-Zа-яА-ЯёЁ\s,-]+$`),
 		Example: "общение",
+	}
+
+	keywordOffsetField = validator.Field{
+		Name:    "Смещение результата поиска",
+		Tag:     KeywordOffsetTag,
+		IsValid: validator.IsInt,
+		Example: "4",
+	}
+
+	keywordLimitField = validator.Field{
+		Name:    "Количество результатов поиска",
+		Tag:     KeywordLimitTag,
+		IsValid: validator.IsInt,
+		Example: "3",
 	}
 )

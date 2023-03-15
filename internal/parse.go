@@ -52,3 +52,28 @@ func ParseUser(opt discord.CommandInteractionOptions) (User, error) {
 
 	return user, errAccumulator
 }
+
+func ParseKeyword(options discord.CommandInteractionOptions) (Keyword, error) {
+	var (
+		kw             Keyword
+		errAccumulator error
+	)
+
+	if err := validator.ValidateDiscord(keywordField, options, &kw.Search); err != nil {
+		errAccumulator = multierror.Append(errAccumulator, err)
+	}
+
+	if err := validator.ValidateDiscord(keywordLimitField, options, &kw.Limit); err != nil {
+		errAccumulator = multierror.Append(errAccumulator, err)
+	}
+
+	if err := validator.ValidateDiscord(keywordOffsetField, options, &kw.Offset); err != nil {
+		errAccumulator = multierror.Append(errAccumulator, err)
+	}
+
+	if errAccumulator != nil {
+		errAccumulator.(*multierror.Error).ErrorFormat = formatter.Error
+	}
+
+	return kw, errAccumulator
+}
