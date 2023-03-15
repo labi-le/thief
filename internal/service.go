@@ -6,6 +6,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/state"
+	"github.com/hashicorp/go-multierror"
 	"github.com/patrickmn/go-cache"
 	"time"
 )
@@ -18,7 +19,8 @@ type UserService interface {
 
 	PrettyStats(ctx context.Context) (PrettyStats, error)
 
-	AddRole(guildID discord.GuildID, id UserID, roleID RoleID) error
+	AddRole(guildID discord.GuildID, id UserID, roleID ...RoleID) error
+	RemoveRole(guildID discord.GuildID, id UserID, roleID ...RoleID) error
 
 	SearchByKeyword(ctx context.Context, search string) ([]User, error)
 }
@@ -29,17 +31,42 @@ type service struct {
 	cache *cache.Cache
 }
 
+func (s *service) RemoveRole(guildID discord.GuildID, userID UserID, roleID ...RoleID) error {
+	var err error
+	for _, id := range roleID {
+		apiErr := s.bot.RemoveRole(
+			guildID,
+			discord.UserID(userID),
+			discord.RoleID(id),
+			"User removed role by thief",
+		)
+		if apiErr != nil {
+			err = multierror.Append(err, apiErr)
+		}
+	}
+
+	return err
+}
+
 func NewUserService(repo UserRepository, bot *state.State, cache *cache.Cache) UserService {
 	return &service{repo: repo, bot: bot, cache: cache}
 }
 
-func (s *service) AddRole(guildID discord.GuildID, userID UserID, roleID RoleID) error {
-	return s.bot.AddRole(
-		guildID,
-		discord.UserID(userID),
-		discord.RoleID(roleID),
-		api.AddRoleData{AuditLogReason: "User added to thief db"},
-	)
+func (s *service) AddRole(guildID discord.GuildID, userID UserID, roleID ...RoleID) error {
+	var err error
+	for _, id := range roleID {
+		apiErr := s.bot.AddRole(
+			guildID,
+			discord.UserID(userID),
+			discord.RoleID(id),
+			api.AddRoleData{AuditLogReason: "User added to thief db"},
+		)
+		if apiErr != nil {
+			err = multierror.Append(err, apiErr)
+		}
+	}
+
+	return err
 }
 
 func (s *service) CreateUser(ctx context.Context, user User) error {

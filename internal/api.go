@@ -25,8 +25,8 @@ type resource struct {
 	self    *discord.User
 	service UserService
 
-	supportRoleID []SupportRoleID
-	memberRoleID  []MemberRoleID
+	supportRoleID []RoleID
+	memberRoleID  []RoleID
 }
 
 const (
@@ -138,107 +138,6 @@ func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserServi
 	}
 }
 
-func getInlineCommands() []api.CreateCommandData {
-	return []api.CreateCommandData{
-		{
-			Name:        "set",
-			Description: "Добавить анкету пользователя",
-
-			Options: []discord.CommandOption{
-				&discord.UserOption{
-					OptionName:  UsernameTag,
-					Description: "Никнейм",
-					Required:    true,
-				},
-
-				&discord.StringOption{
-					OptionName:  nameField.Tag,
-					Description: nameField.Name,
-					Required:    true,
-				},
-
-				&discord.IntegerOption{
-					OptionName:  ageField.Tag,
-					Description: ageField.Name,
-					Required:    true,
-				},
-
-				&discord.StringOption{
-					OptionName:  locationField.Tag,
-					Description: locationField.Name,
-					Required:    true,
-				},
-
-				&discord.StringOption{
-					OptionName:  hobbiesField.Tag,
-					Description: hobbiesField.Name,
-					Required:    true,
-				},
-
-				&discord.StringOption{
-					OptionName:  occupationField.Tag,
-					Description: occupationField.Name,
-					Required:    true,
-				},
-
-				&discord.StringOption{
-					OptionName:  goalsField.Tag,
-					Description: goalsField.Name,
-					Required:    true,
-				},
-			},
-		},
-
-		{
-			Name:        "get",
-			Description: "Получить анкету пользователя",
-
-			Options: []discord.CommandOption{
-				&discord.UserOption{
-					OptionName:  UsernameTag,
-					Description: "Никнейм",
-					Required:    true,
-				},
-			},
-		},
-
-		{
-			Name:        "search",
-			Description: "Поиск анкеты пользователя по ключевым словам",
-
-			Options: []discord.CommandOption{
-				&discord.StringOption{
-					OptionName:  keywordField.Tag,
-					Description: "Ключевые слова",
-					Required:    true,
-				},
-			},
-		},
-
-		{
-			Name:        "delete",
-			Description: "Удалить анкету пользователя",
-			Options: []discord.CommandOption{
-				&discord.UserOption{
-					OptionName:  UsernameTag,
-					Description: "Никнейм",
-					Required:    true,
-				},
-			},
-		},
-
-		{
-			Name:        "stats",
-			Description: "Статистика",
-		},
-
-		{
-			Name:        "help",
-			Description: "Показать справку из психдиспансера",
-		},
-	}
-}
-
 func (r *resource) Help(_ context.Context, _ cmdroute.CommandData) *api.InteractionResponseData {
 	msg := `**Thief** - честный хранитель анкет
 
@@ -335,11 +234,8 @@ func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.Inte
 		return r.send("Не удалось создать анкету для пользователя: " + err.Error())
 	}
 
-	for _, id := range r.memberRoleID {
-		if err := r.service.AddRole(data.Event.GuildID, parsed.ID, RoleID(id)); err != nil {
-			r.log.Error(err)
-			return r.send("Не удалось добавить роль для пользователя: " + err.Error())
-		}
+	if err := r.service.AddRole(data.Event.GuildID, parsed.ID, r.memberRoleID...); err != nil {
+		return r.send("Не удалось добавить роль пользователю: " + err.Error())
 	}
 
 	return r.send("Анкета добавлена")
@@ -348,7 +244,7 @@ func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.Inte
 // checkAccess
 // Проверяет, есть ли у пользователя доступ к команде
 // Проверяет, есть ли у пользователя роль supportRoleID
-func checkAccess(supportRoleID []SupportRoleID, member *discord.Member, selectable UserID) bool {
+func checkAccess(supportRoleID []RoleID, member *discord.Member, selectable UserID) bool {
 	// Если пользователь отправивший команду - это сам пользователь
 	if UserID(member.User.ID) == selectable {
 		return true
@@ -375,9 +271,10 @@ func (r *resource) Delete(ctx context.Context, data cmdroute.CommandData) *api.I
 		return r.send(ErrNoAccess.Error())
 	}
 
+	defer r.service.RemoveRole(data.Event.GuildID, parsed, r.memberRoleID...)
+
 	if err := r.service.DeleteUser(ctx, parsed); err != nil {
-		err = errors.Wrap(err, "failed to delete user")
-		r.log.Error(err)
+		r.log.Error(errors.Wrap(err, "failed to delete user"))
 	}
 
 	return r.send("Анкета удалена")

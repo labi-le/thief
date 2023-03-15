@@ -20,18 +20,13 @@ type User struct {
 }
 
 type Config struct {
-	AccessToken   string          `env:"ACCESS_TOKEN,required"`
-	DBConn        string          `env:"DB_CONN,required"`
-	GuildID       GuildID         `env:"GUILD_ID,required"`
-	Timeout       int             `env:"TIMEOUT,required"`
-	SupportRoleID []SupportRoleID `env:"SUPPORT_ROLE_ID,required,delimiter=;"`
-	MemberRoleID  []MemberRoleID  `env:"MEMBER_ROLE_ID,required,delimiter=;"`
+	AccessToken   string   `env:"ACCESS_TOKEN,required"`
+	DBConn        string   `env:"DB_CONN,required"`
+	GuildID       GuildID  `env:"GUILD_ID,required"`
+	Timeout       int      `env:"TIMEOUT,required"`
+	SupportRoleID []RoleID `env:"SUPPORT_ROLE_ID,required,delimiter=;"`
+	MemberRoleID  []RoleID `env:"MEMBER_ROLE_ID,required,delimiter=;"`
 }
-
-type (
-	SupportRoleID uint64
-	MemberRoleID  uint64
-)
 
 type PrettyStats struct {
 	TotalUsers       uint64 `json:"total_users" pretty:"Всего пользователей"`
