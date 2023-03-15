@@ -6,8 +6,7 @@ import (
 )
 
 func TestOffset(t *testing.T) {
-	// Sample data
-	vanilla := []User{
+	data := []User{
 		{
 			ID:         1,
 			Name:       "a",
@@ -129,96 +128,166 @@ func TestOffset(t *testing.T) {
 		},
 	}
 
-	users := vanilla
+	type args struct {
+		limit  int
+		offset int
+		data   []User
+	}
 
-	// Test 1
-	limit := 2
-	offset := 1
-	expectedResult := users[1:3]
-	Offset(limit, offset, &users)
-	if len(users) != 2 {
-		t.Errorf("Expected length %d, but got %d", 2, len(users))
+	type wantArgs struct {
+		length int
+		data   []User
 	}
-	for i, user := range users {
-		if user != expectedResult[i] {
-			t.Errorf("Expected %v, but got %v", expectedResult[i], user)
-		}
-	}
-	users = vanilla
 
-	// Test 2
-	limit = 4
-	offset = 4
-	expectedResult = users[4:8]
-	Offset(limit, offset, &users)
-	if len(users) != 4 {
-		t.Errorf("Expected length %d, but got %d", 4, len(users))
-	}
-	for i, user := range users {
-		if user != expectedResult[i] {
-			t.Errorf("Expected %v, but got %v", expectedResult[i], user)
-		}
-	}
-	users = vanilla
+	tests := []struct {
+		name string
+		args args
+		want wantArgs
+	}{
+		{
+			name: "test limit=2, offset=1",
+			args: args{
+				limit:  2,
+				offset: 1,
+				data:   data,
+			},
+			want: wantArgs{
+				length: 2,
+				data:   data[1:3],
+			},
+		},
 
-	// Test 3 - with limit=0
-	limit = 0
-	offset = 4
-	expectedResult = users[4:9]
-	Offset(limit, offset, &users)
-	if len(users) != 5 {
-		t.Errorf("Expected length %d, but got %d", 5, len(users))
-	}
-	for i, user := range users {
-		if user != expectedResult[i] {
-			t.Errorf("Expected %v, but got %v", expectedResult[i], user)
-		}
-	}
-	users = vanilla
+		{
+			name: "test limit=4, offset=4",
+			args: args{
+				limit:  4,
+				offset: 4,
+				data:   data,
+			},
+			want: wantArgs{
+				length: 4,
+				data:   data[4:8],
+			},
+		},
 
-	// Test 4 - with Offset=0
-	limit = 2
-	offset = 0
-	expectedResult = users[0:2]
-	Offset(limit, offset, &users)
-	if len(users) != 2 {
-		t.Errorf("Expected length %d, but got %d", 2, len(users))
-	}
-	for i, user := range users {
-		if user != expectedResult[i] {
-			t.Errorf("Expected %v, but got %v", expectedResult[i], user)
-		}
-	}
-	users = vanilla
+		{
+			name: "test limit=10, offset=0",
+			args: args{
+				limit:  10,
+				offset: 0,
+				data:   data,
+			},
+			want: wantArgs{
+				length: 10,
+				data:   data[0:10],
+			},
+		},
 
-	// Test 5 - with Offset=0 and limit=0
-	limit = 0
-	offset = 0
-	expectedResult = users
-	Offset(limit, offset, &users)
-	if len(users) != 5 {
-		t.Errorf("Expected length %d, but got %d", 5, len(users))
-	}
-	for i, user := range users {
-		if user != expectedResult[i] {
-			t.Errorf("Expected %v, but got %v", expectedResult[i], user)
-		}
-	}
-	users = vanilla
+		{
+			name: "test limit=10, offset=10",
+			args: args{
+				limit:  10,
+				offset: 10,
+				data:   data,
+			},
+			want: wantArgs{
+				length: 0,
+				data:   []User{},
+			},
+		},
 
-	// Test 6 - with Offset=-1 and limit=-1
-	limit = -1
-	offset = -1
-	expectedResult = users
-	Offset(limit, offset, &users)
-	if len(users) != 5 {
-		t.Errorf("Expected length %d, but got %d", 5, len(users))
-	}
-	for i, user := range users {
-		if user != expectedResult[i] {
-			t.Errorf("Expected %v, but got %v", expectedResult[i], user)
-		}
-	}
-	users = vanilla
+		{
+			name: "test limit=10, offset=11",
+			args: args{
+				limit:  10,
+				offset: 11,
+				data:   data,
+			},
+			want: wantArgs{
+				length: 5,
+				data:   data[5:10],
+			},
+		},
 
+		{
+			name: "test limit=0, offset=0",
+			args: args{
+				limit:  0,
+				offset: 0,
+				data:   data,
+			},
+			want: wantArgs{
+				length: 5,
+				data:   data[0:5],
+			},
+		},
+
+		{
+			name: "test limit=0, offset=5",
+			args: args{
+				limit:  0,
+				offset: 5,
+				data:   data,
+			},
+			want: wantArgs{
+				length: 5,
+				data:   data[5:10],
+			},
+		},
+
+		{
+			name: "test limit=0, offset=10",
+			args: args{
+				limit:  0,
+				offset: 10,
+				data:   data,
+			},
+			want: wantArgs{
+				length: 0,
+				data:   []User{},
+			},
+		},
+
+		{
+			name: "test limit=-1, offset=0",
+			args: args{
+				limit:  -1,
+				offset: 0,
+				data:   data,
+			},
+			want: wantArgs{
+				length: 5,
+				data:   data[0:5],
+			},
+		},
+
+		{
+			name: "test limit=5, offset=-1",
+			args: args{
+				limit:  5,
+				offset: -1,
+				data:   data,
+			},
+			want: wantArgs{
+				length: 5,
+				data:   data[0:5],
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			Offset(tt.args.limit, tt.args.offset, &tt.args.data)
+
+			if len(tt.args.data) != tt.want.length {
+				t.Errorf("Expected length %d, but got %d", tt.want.length, len(tt.args.data))
+			}
+
+			for i, user := range tt.args.data {
+				if user != tt.want.data[i] {
+					t.Errorf("Expected %v, but got %v", tt.want.data[i], user)
+				}
+			}
+
+		})
+	}
 }
