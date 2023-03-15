@@ -17,3 +17,24 @@ func (r *resource) sendSilent(msg string) *api.InteractionResponseData {
 		},
 	}
 }
+
+func Offset(limit, offset int, users *[]User) {
+	if limit <= 0 {
+		limit = 5
+	}
+
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Offset correction if greater than total
+	if offset > len(*users) {
+		offset = len(*users) - 5
+	}
+
+	if offset+limit > len(*users) {
+		limit = len(*users) - offset
+	}
+
+	*users = (*users)[offset : offset+limit]
+}
