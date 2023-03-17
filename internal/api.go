@@ -126,15 +126,6 @@ func (r *resource) Search(ctx context.Context, data cmdroute.CommandData) *api.I
 	return r.sendSilent(PrettySlice(users))
 }
 
-func maxLengthCorrector(prettier func(data []User) string, users []User) string {
-	text := prettier(users)
-	if len(text) > 2000 {
-		text = maxLengthCorrector(prettier, users[:len(users)-1])
-	}
-
-	return text
-}
-
 func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 	parsed, parsErr := ParseUser(data.Options)
 	if parsErr != nil {
