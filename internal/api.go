@@ -80,12 +80,12 @@ func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserServi
 func (r *resource) Help(_ context.Context, _ cmdroute.CommandData) *api.InteractionResponseData {
 	msg := `**Thief** - честный хранитель анкет
 
-**/get** - получить анкету участника
-**/search** - поиск анкет по ключевым словам
-**/set** - добавить или изменить анкету
-**/delete** - удалить анкету
-**/stats** - статистика
-**/help** - показать это сообщение
+` + PrettySlashCommands("get", r.self.ID) + ` - получить анкету участника
+` + PrettySlashCommands("search", r.self.ID) + ` - поиск анкет по ключевым словам
+` + PrettySlashCommands("set", r.self.ID) + ` - добавить или изменить анкету
+` + PrettySlashCommands("delete", r.self.ID) + ` - удалить анкету
+` + PrettySlashCommands("stats", r.self.ID) + ` - статистика
+` + PrettySlashCommands("help", r.self.ID) + ` - показать это сообщение
 
 *создание\\изменение возможно только для своего профиля. модераторы могут удалять\\изменять анкеты других пользователей*
 *после удалении анкеты юзер теряет роль участника, также после того как юзер выходит — анкета удаляется*
