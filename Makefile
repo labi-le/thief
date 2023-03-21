@@ -1,8 +1,3 @@
-#CONTOUR = dev
-#
-#include .env.$(CONTOUR)
-#export $(shell sed 's/=.*//' .env.$(CONTOUR))
-
 PACKAGE = thief
 
 MAIN_PATH = cmd/main.go

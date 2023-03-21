@@ -27,3 +27,8 @@ docker-сompose build --no-cache
 ```sh
 docker-сompose up -d
 ```
+
+### Easy way
+```sh
+git pull && docker-compose build --no-cache && docker-compose down && docker-compose up -d
+```
