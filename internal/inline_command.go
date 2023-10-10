@@ -58,6 +58,55 @@ func getInlineCommands() []api.CreateCommandData {
 		},
 
 		{
+			Name:        "edit",
+			Description: "Отредактировать существующую анкету пользователя",
+
+			Options: []discord.CommandOption{
+				&discord.UserOption{
+					OptionName:  UsernameTag,
+					Description: "Никнейм",
+					Required:    true,
+				},
+
+				&discord.StringOption{
+					OptionName:  nameField.Tag,
+					Description: nameField.Name,
+					Required:    false,
+				},
+
+				&discord.IntegerOption{
+					OptionName:  ageField.Tag,
+					Description: ageField.Name,
+					Required:    false,
+				},
+
+				&discord.StringOption{
+					OptionName:  locationField.Tag,
+					Description: locationField.Name,
+					Required:    false,
+				},
+
+				&discord.StringOption{
+					OptionName:  hobbiesField.Tag,
+					Description: hobbiesField.Name,
+					Required:    false,
+				},
+
+				&discord.StringOption{
+					OptionName:  occupationField.Tag,
+					Description: occupationField.Name,
+					Required:    false,
+				},
+
+				&discord.StringOption{
+					OptionName:  goalsField.Tag,
+					Description: goalsField.Name,
+					Required:    false,
+				},
+			},
+		},
+
+		{
 			Name:        "get",
 			Description: "Получить анкету пользователя",
 

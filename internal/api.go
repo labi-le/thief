@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"dario.cat/mergo"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -70,6 +71,7 @@ func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserServi
 	res.AddFunc("search", res.Search)
 
 	res.AddFunc("set", res.CheckAccessMiddleware(res.Set))
+	res.AddFunc("edit", res.CheckAccessMiddleware(res.Edit))
 	res.AddFunc("delete", res.CheckAccessMiddleware(res.Delete))
 
 	if err := cmdroute.OverwriteCommands(bot, getInlineCommands()); err != nil {
@@ -145,6 +147,36 @@ func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.Inte
 	}
 
 	return r.send("Анкета добавлена")
+}
+
+func (r *resource) Edit(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+	parsed, _ := ParseUser(data.Options)
+	//if parsErr != nil {
+	//	return r.send(parsErr.Error())
+	//}
+
+	user, err := r.service.GetUser(ctx, parsed.ID)
+	if err != nil {
+		r.log.Error(err)
+		return r.send(ErrFormNotFound.Error())
+	}
+
+	updated := CompareUser(user, parsed)
+
+	if err := r.service.UpdateUser(ctx, updated); err != nil {
+		r.log.Error(err)
+		return r.send("Не удалось создать анкету для пользователя: " + err.Error())
+	}
+
+	return r.send("Анкета добавлена")
+}
+
+// CompareUser сравнивает две анкеты и возвращает обновленную анкету
+func CompareUser(dst User, src User) User {
+	if err := mergo.Merge(&dst, src, mergo.WithOverride); err != nil {
+		return User{}
+	}
+	return dst
 }
 
 // checkAccess

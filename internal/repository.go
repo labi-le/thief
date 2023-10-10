@@ -179,7 +179,7 @@ func (r *repository) PrettyStats(ctx context.Context) (PrettyStats, error) {
 		ctx,
 		`
 select count()                                    as total_user,
-       u_last.id                                  as last_user,
+       u_last.id                                  as last_user,	
        round(avg(age))                            as average_age,
        u_loc.location                             as most_popular_location,
        u_name.name                                as most_popular_name,
