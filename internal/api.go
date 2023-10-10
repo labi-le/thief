@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"dario.cat/mergo"
+	"encoding/json"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -65,14 +66,14 @@ func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserServi
 
 	bot.AddInteractionHandler(res)
 
-	res.AddFunc("stats", res.Stats)
-	res.AddFunc("help", res.Help)
-	res.AddFunc("get", res.Get)
-	res.AddFunc("search", res.Search)
+	res.AddFunc("stats", res.LoggerMiddleware(res.Stats))
+	res.AddFunc("help", res.LoggerMiddleware(res.Help))
+	res.AddFunc("get", res.LoggerMiddleware(res.Get))
+	res.AddFunc("search", res.LoggerMiddleware(res.Search))
 
-	res.AddFunc("set", res.CheckAccessMiddleware(res.Set))
-	res.AddFunc("edit", res.CheckAccessMiddleware(res.Edit))
-	res.AddFunc("delete", res.CheckAccessMiddleware(res.Delete))
+	res.AddFunc("set", res.LoggerMiddleware(res.CheckAccessMiddleware(res.Set)))
+	res.AddFunc("edit", res.LoggerMiddleware(res.CheckAccessMiddleware(res.Edit)))
+	res.AddFunc("delete", res.LoggerMiddleware(res.CheckAccessMiddleware(res.Delete)))
 
 	if err := cmdroute.OverwriteCommands(bot, getInlineCommands()); err != nil {
 		panic(errors.Wrap(err, "failed to overwrite commands"))
@@ -250,6 +251,15 @@ func (r *resource) CheckAccessMiddleware(fn cmdroute.CommandHandlerFunc) cmdrout
 		if !checkAccess(r.supportRoleID, data.Event.Member, userID) {
 			return r.send(ErrNoAccess.Error())
 		}
+
+		return fn(ctx, data)
+	}
+}
+
+func (r *resource) LoggerMiddleware(fn cmdroute.CommandHandlerFunc) cmdroute.CommandHandlerFunc {
+	return func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+		marshal, _ := json.Marshal(data)
+		r.log.Info(string(marshal))
 
 		return fn(ctx, data)
 	}
