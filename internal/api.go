@@ -9,7 +9,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/state"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"thief/pkg/formatter"
 	"time"
 )
@@ -17,7 +17,6 @@ import (
 type resource struct {
 	*cmdroute.Router
 	bot *state.State
-	log *logrus.Logger
 
 	self    *discord.User
 	service UserService
@@ -46,18 +45,17 @@ var (
 	ErrNotFound     = errors.New("По вашему запросу ничего не найдено")
 )
 
-func RegisterHandlers(bot *state.State, logger *logrus.Logger, service UserService, conf Config) {
+func RegisterHandlers(bot *state.State, service UserService, conf Config) {
 	me, err := bot.Me()
 	if err != nil {
 		panic(errors.Wrap(err, "failed to get self id"))
 	}
 
-	logger.Infof("%s is running", me.Username)
+	log.Info().Msgf("%s is running", me.Username)
 
 	res := &resource{
 		bot:           bot,
 		Router:        cmdroute.NewRouter(),
-		log:           logger,
 		self:          me,
 		service:       service,
 		supportRoleID: conf.SupportRoleID,
@@ -106,7 +104,7 @@ func (r *resource) Get(ctx context.Context, data cmdroute.CommandData) *api.Inte
 
 	user, err := r.service.GetUser(ctx, parsed)
 	if err != nil {
-		r.log.Error(err)
+		log.Err(err).Msg("failed to get user")
 		return r.send(ErrFormNotFound.Error())
 	}
 
@@ -139,7 +137,7 @@ func (r *resource) Set(ctx context.Context, data cmdroute.CommandData) *api.Inte
 	parsed.CreatedAt = time.Now()
 
 	if err := r.service.CreateUser(ctx, parsed); err != nil {
-		r.log.Error(err)
+		log.Err(err).Msg("failed to create user")
 		return r.send("Не удалось создать анкету для пользователя: " + err.Error())
 	}
 
@@ -158,14 +156,14 @@ func (r *resource) Edit(ctx context.Context, data cmdroute.CommandData) *api.Int
 
 	user, err := r.service.GetUser(ctx, parsed.ID)
 	if err != nil {
-		r.log.Error(err)
+		log.Err(err).Msg("failed to get user")
 		return r.send(ErrFormNotFound.Error())
 	}
 
 	updated := CompareUser(user, parsed)
 
 	if err := r.service.UpdateUser(ctx, updated); err != nil {
-		r.log.Error(err)
+		log.Err(err).Msg("failed to update user")
 		return r.send("Не удалось создать анкету для пользователя: " + err.Error())
 	}
 
@@ -209,12 +207,13 @@ func (r *resource) Delete(ctx context.Context, data cmdroute.CommandData) *api.I
 	defer func(service UserService, guildID discord.GuildID, id UserID, roleID ...RoleID) {
 		err := service.RemoveRole(guildID, id, roleID...)
 		if err != nil {
-			r.log.Error(errors.Wrap(err, "failed to remove role"))
+			log.Err(err).Msg("failed to remove role")
 		}
 	}(r.service, data.Event.GuildID, parsed, r.memberRoleID...)
 
 	if err := r.service.DeleteUser(ctx, parsed); err != nil {
-		r.log.Error(errors.Wrap(err, "failed to delete user"))
+		log.Err(err).Msg("failed to delete user")
+
 	}
 
 	return r.send("Анкета удалена")
@@ -230,8 +229,7 @@ func (r *resource) createInteractionErrorResponse(err error) *api.InteractionRes
 func (r *resource) Stats(ctx context.Context, _ cmdroute.CommandData) *api.InteractionResponseData {
 	stats, err := r.service.PrettyStats(ctx)
 	if err != nil {
-		err = errors.Wrap(err, "failed to get stats")
-		r.log.Error(err)
+		log.Err(err).Msg("failed to get stats")
 
 		return r.send("Не удалось получить статистику: " + err.Error())
 	}
@@ -259,7 +257,7 @@ func (r *resource) CheckAccessMiddleware(fn cmdroute.CommandHandlerFunc) cmdrout
 func (r *resource) LoggerMiddleware(fn cmdroute.CommandHandlerFunc) cmdroute.CommandHandlerFunc {
 	return func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 		marshal, _ := json.Marshal(data)
-		r.log.Info(string(marshal))
+		log.Info().Msg(string(marshal))
 
 		return fn(ctx, data)
 	}

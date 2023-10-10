@@ -7,8 +7,9 @@ import (
 	"github.com/diamondburned/arikawa/v3/state"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/sethvargo/go-envconfig"
-	"github.com/sirupsen/logrus"
 	_ "modernc.org/sqlite"
 	"os"
 	"os/signal"
@@ -17,7 +18,6 @@ import (
 )
 
 var (
-	logger      = initLogger()
 	ctx, cancel = signal.NotifyContext(context.Background(), os.Interrupt)
 )
 
@@ -29,13 +29,11 @@ func main() {
 		panic(errors.Wrap(err, "failed to load config"))
 	}
 
-	logger.Info("start thief")
+	log.Info().Msg("start thief")
+	log.Info().Msgf("config: %v", conf)
+	log.Info().Msgf("version: %s", internal.BuildVersion())
 
-	logger.Infof("config: %v", conf)
-
-	logger.Infof("version: %s", internal.BuildVersion())
-
-	logger.Info("init bot")
+	log.Info().Msg("init bot")
 	bot := state.New("Bot " + conf.AccessToken)
 	bot.AddIntents(
 		gateway.IntentGuilds |
@@ -44,25 +42,25 @@ func main() {
 			gateway.IntentGuildMembers,
 	)
 
-	logger.Info("init db")
+	log.Info().Msg("init db")
 	ur := internal.NewUserRepository(MustDB(conf.DBConn))
 	us := MustUserService(ur, bot)
 
-	logger.Info("register handlers")
-	internal.RegisterHandlers(bot, logger, us, conf)
+	log.Info().Msg("register handlers")
+	internal.RegisterHandlers(bot, us, conf)
 
 	defer bot.Close()
 
 	if err := bot.Open(ctx); err != nil {
-		logger.Error(errors.Wrap(err, "failed to open bot"))
+		log.Err(err).Msg("failed to open bot")
 	}
 
-	logger.Info("init job")
+	log.Info().Msg("init job")
 	service := MustStateService(conf, ur, bot)
 	go func() {
 		err := service.RunJob(ctx)
 		if err != nil {
-			logger.Error(errors.Wrap(err, "failed to run job"))
+			log.Err(err).Msg("failed to run job")
 		}
 	}()
 
@@ -92,18 +90,15 @@ func MustStateService(
 		c.GuildID,
 		ur,
 		bot,
-		logger,
 	)
 }
 
-func initLogger() *logrus.Logger {
-	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
-	//logger.SetFormatter(&logrus.JSONFormatter{
-	//	PrettyPrint: false,
-	//})
-	logger.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
+func initLogger(debug bool) {
+	if debug {
+		log.Logger = log.With().Caller().Logger()
+		zerolog.SetGlobalLevel(zerolog.TraceLevel)
+		return
+	}
 
-	logger.SetReportCaller(true)
-	return logger
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
