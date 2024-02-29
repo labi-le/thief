@@ -1,28 +1,28 @@
 # thief
 
-дискорд-бот, создан аккумуляции анкет пользователей
+discord bot, created to accumulate user profiles
 
-### Как это собрать
+### Build
 
-- Создать файл .env.prod и заполнить его (пример в .env.example
+- Create a .env.prod file and fill it in (example in .env.example)
 
 ```sh 
 cp .env.example .env.prod
 ```
 
-- Создать sqlite базу данных
+- Create sqlite db
 
 ```sh
 cp example.db db
 ```
 
-- Собрать образ
+- Build image
 
 ```sh
 docker-сompose build --no-cache
 ```
 
-- Запустить контейнеры
+- Up containers
 
 ```sh
 docker-сompose up -d
