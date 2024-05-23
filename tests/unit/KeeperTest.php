@@ -6,7 +6,6 @@ use labile\thief\Command;
 
 class KeeperTest extends TestCase
 {
-
     public function testAll()
     {
         $keeper = $this->keeper();

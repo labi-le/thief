@@ -2,8 +2,15 @@
 
 namespace labile\thief\tests\unit;
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\StreamHandler;
+use GuzzleHttp\Psr7\HttpFactory;
+use GuzzleHttp\Psr7\Stream;
 use labile\thief\CommandStorage;
+use labile\thief\Juggler;
 use labile\thief\Keeper;
+use Monolog\Level;
+use Monolog\Logger;
 use Psr\Container\ContainerInterface;
 use Yiisoft\Di\Container;
 use Yiisoft\Di\ContainerConfig;
@@ -21,6 +28,22 @@ class TestCase extends \PHPUnit\Framework\TestCase
         $keeper->add("/start", TestCommand1::class, TestCommand2::class, TestCommand3::class);
         $keeper->add("/test", TestCommand1::class, TestCommand2::class, TestCommand3::class);
 
-        return clone $keeper;
+        return $keeper;
+    }
+
+    public function juggler(): Juggler
+    {
+        $logger = new Logger('test');
+        $logger->pushHandler(new \Monolog\Handler\StreamHandler('php://stdout', Level::Debug));
+
+        return new Juggler(
+            getenv('THIEF_BOT_TOKEN_TEST') ?: '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
+            username: 'test',
+            keeper: $this->keeper(),
+            httpClient: new Client(),
+            requestFactory: new HttpFactory(),
+            streamFactory: new HttpFactory(),
+            logger: $logger
+        );
     }
 }
