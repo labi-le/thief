@@ -10,3 +10,14 @@ I originally just wanted to extend it because I needed features that this packag
 
 ### goals
 one of the main goals is to make the framework as extensible as possible
+
+### todo
+- [x] add command storage
+- [x] webhook manager
+- [ ] handle updates
+- [ ] handle commands
+- [ ] add attributes
+- [ ] add middleware
+- [ ] add dto tg responses
+- [ ] add client wrapper (basically tg methods, sendMessage, ...)
+- [ ] add ci cd, test, cs fixer, ...
