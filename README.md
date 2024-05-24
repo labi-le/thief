@@ -8,6 +8,10 @@ yet another telegram bot framework
 inspired by [php-telegram-bot](https://github.com/php-telegram-bot/core) \
 I originally just wanted to extend it because I needed features that this package doesn't support. The extension happened so horribly - that's why I created thief
 
+### thanks to these packages for code that I can not rewrite, but simply reuse the necessary components
+- [TelegramBot/Api](https://github.com/TelegramBot/Api) | [License](https://github.com/TelegramBot/Api/blob/master/LICENSE.md)
+- [php-telegram-bot](https://github.com/php-telegram-bot/core) | [License](https://github.com/php-telegram-bot/core/blob/develop/LICENSE)
+
 ### goals
 one of the main goals is to make the framework as extensible as possible
 
