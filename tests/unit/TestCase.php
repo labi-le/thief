@@ -3,9 +3,7 @@
 namespace labile\thief\tests\unit;
 
 use GuzzleHttp\Client;
-use GuzzleHttp\Handler\StreamHandler;
 use GuzzleHttp\Psr7\HttpFactory;
-use GuzzleHttp\Psr7\Stream;
 use labile\thief\CommandStorage;
 use labile\thief\Juggler;
 use labile\thief\Keeper;
