@@ -10,5 +10,5 @@ interface Command
      * Some command that can be run
      * @return mixed
      */
-    public function execute();
+    public function execute(): Response;
 }
