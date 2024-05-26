@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace labile\thief\Types\Inline;
 
 use labile\thief\Types\BaseType;
+use labile\thief\Types\Event;
 use labile\thief\Types\Location;
 use labile\thief\Types\User;
 
@@ -12,7 +13,7 @@ use labile\thief\Types\User;
  * This object represents a result of an inline query that was chosen by the user and sent to their chat partner.
  *
  */
-class ChosenInlineResult extends BaseType
+class ChosenInlineResult extends BaseType implements Event
 {
     /**
      * {@inheritdoc}

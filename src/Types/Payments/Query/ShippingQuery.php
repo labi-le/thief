@@ -1,9 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace labile\thief\Types\Payments\Query;
 
 use labile\thief\Types\BaseType;
+use labile\thief\Types\Event;
 use labile\thief\Types\Payments\ShippingAddress;
 use labile\thief\Types\User;
 
@@ -12,7 +14,7 @@ use labile\thief\Types\User;
  * This object contains information about an incoming shipping query.
  *
  */
-class ShippingQuery extends BaseType
+class ShippingQuery extends BaseType implements Event
 {
     /**
      * @var array

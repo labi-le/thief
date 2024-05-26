@@ -1,12 +1,15 @@
 <?php
+declare(strict_types=1);
 
 namespace labile\thief\tests\unit;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
-use labile\thief\CommandStorage;
+use labile\thief\Command\Keeper;
+use labile\thief\Command\Storage;
 use labile\thief\Juggler;
-use labile\thief\Keeper;
+use labile\thief\Types\Message;
+use Monolog\Handler\StreamHandler;
 use Monolog\Level;
 use Monolog\Logger;
 use Psr\Container\ContainerInterface;
@@ -20,11 +23,11 @@ class TestCase extends \PHPUnit\Framework\TestCase
         return new Container(ContainerConfig::create());
     }
 
-    public function keeper(): CommandStorage
+    public function keeper(): Storage
     {
         $keeper = new Keeper($this->container());
-        $keeper->add("/start", TestCommand1::class, TestCommand2::class, TestCommand3::class);
-        $keeper->add("/test", TestCommand1::class, TestCommand2::class, TestCommand3::class);
+        $keeper->add(Message::class, TestCommand1::class, TestCommand2::class, TestCommand3::class);
+        $keeper->add(Message::class, TestCommand1::class, TestCommand2::class, TestCommand3::class);
 
         return $keeper;
     }
@@ -32,7 +35,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
     public function juggler(): Juggler
     {
         $logger = new Logger('test');
-        $logger->pushHandler(new \Monolog\Handler\StreamHandler('php://stdout', Level::Debug));
+        $logger->pushHandler(new StreamHandler('php://stdout', Level::Debug));
 
         return new Juggler(
             getenv('THIEF_BOT_TOKEN_TEST') ?: '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',

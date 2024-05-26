@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace labile\thief\Types\Inline;
 
 use labile\thief\Types\BaseType;
+use labile\thief\Types\Event;
 use labile\thief\Types\Location;
 use labile\thief\Types\User;
 
@@ -13,7 +14,7 @@ use labile\thief\Types\User;
  * When the user sends an empty query, your bot could return some default or trending results.
  *
  */
-class InlineQuery extends BaseType
+class InlineQuery extends BaseType implements Event
 {
     /**
      * {@inheritdoc}

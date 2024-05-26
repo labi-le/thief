@@ -1,10 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace labile\thief\Types;
 
 
-class ChatJoinRequest extends BaseType implements TypeInterface
+class ChatJoinRequest extends BaseType implements TypeInterface, Event
 {
     /**
      * {@inheritdoc}

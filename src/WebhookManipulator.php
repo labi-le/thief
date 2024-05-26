@@ -10,5 +10,5 @@ interface WebhookManipulator
 
     public function deleteWebhook(bool $dropPendingUpdates = false): bool;
 
-    public function webhookInfo(): array;
+    public function webhookInfo(): object;
 }

@@ -1,10 +1,8 @@
 <?php
+
 declare(strict_types=1);
 
 namespace labile\thief\Types;
-
-
-use const E_USER_DEPRECATED;
 
 /**
  * Class PollAnswer
@@ -15,7 +13,7 @@ use const E_USER_DEPRECATED;
  *
  *
  */
-class PollAnswer extends BaseType
+class PollAnswer extends BaseType implements Event
 {
     /**
      * {@inheritdoc}
@@ -82,18 +80,6 @@ class PollAnswer extends BaseType
     public function setUser(User $from): void
     {
         $this->user = $from;
-    }
-
-    /**
-     * @deprecated
-     *
-     * @return User
-     */
-    public function getFrom(): User
-    {
-        @trigger_error(sprintf('Access user with %s is deprecated, use "%s::getUser" method', __METHOD__, __CLASS__), E_USER_DEPRECATED);
-
-        return $this->getUser();
     }
 
     /**

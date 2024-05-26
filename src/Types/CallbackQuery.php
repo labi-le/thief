@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace labile\thief\Types;
@@ -15,7 +16,7 @@ namespace labile\thief\Types;
  * Exactly one of the fields data or game_short_name will be present.
  *
  */
-class CallbackQuery extends BaseType
+class CallbackQuery extends BaseType implements Event
 {
     /**
      * {@inheritdoc}

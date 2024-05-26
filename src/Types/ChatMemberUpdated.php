@@ -1,10 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace labile\thief\Types;
 
 
-class ChatMemberUpdated extends BaseType implements TypeInterface
+class ChatMemberUpdated extends BaseType implements TypeInterface, Event
 {
     /**
      * {@inheritdoc}

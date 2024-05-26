@@ -8,7 +8,7 @@ use labile\thief\Types\Inline\InlineKeyboardMarkup;
 use labile\thief\Types\Payments\Invoice;
 use labile\thief\Types\Payments\SuccessfulPayment;
 
-class Message extends BaseType implements TypeInterface
+class Message extends BaseType implements TypeInterface, Event
 {
     /**
      * {@inheritdoc}

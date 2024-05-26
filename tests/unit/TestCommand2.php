@@ -1,15 +1,17 @@
 <?php
+declare(strict_types=1);
 
 namespace labile\thief\tests\unit;
 
-use labile\thief\Command;
+use labile\thief\Command\Command;
 use labile\thief\Response;
+use labile\thief\Types\Result;
 
 class TestCommand2 implements Command
 {
 
     public function execute(): Response
     {
-        // TODO: Implement execute() method.
+        return Result::Ok;
     }
 }

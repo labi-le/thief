@@ -10,7 +10,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "labile\\thief\\tests\\": "tests"
+            "labile\\thief\\tests\\": "tests",
+            "labile\\thief\\examples\\": "examples"
         }
     },
     "authors": [
@@ -20,7 +21,7 @@
         }
     ],
     "require": {
-        "php": ">=8.1",
+        "php": ">=8.2",
         "psr/log": "^3.0",
         "psr/http-client": "^1.0",
         "psr/container": "^2.0",

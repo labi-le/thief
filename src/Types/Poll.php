@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace labile\thief\Types;
@@ -9,7 +10,7 @@ namespace labile\thief\Types;
  * This object contains information about a poll.
  *
  */
-class Poll extends BaseType implements TypeInterface
+class Poll extends BaseType implements TypeInterface, Event
 {
     /**
      * {@inheritdoc}

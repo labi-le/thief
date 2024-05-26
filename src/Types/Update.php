@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace labile\thief\Types;
 
+use InvalidArgumentException;
 use labile\thief\Types\Inline\ChosenInlineResult;
 use labile\thief\Types\Inline\InlineQuery;
 use labile\thief\Types\Payments\Query\PreCheckoutQuery;
@@ -12,7 +13,6 @@ use labile\thief\Types\Payments\Query\ShippingQuery;
  * Class Update
  * This object represents an incoming update.
  * Only one of the optional parameters can be present in any given update.
- *
  */
 class Update extends BaseType implements TypeInterface
 {
@@ -30,6 +30,26 @@ class Update extends BaseType implements TypeInterface
      */
     protected static array $map = [
         'update_id' => true,
+        'message' => Message::class,
+        'edited_message' => Message::class,
+        'channel_post' => Message::class,
+        'edited_channel_post' => Message::class,
+        'inline_query' => InlineQuery::class,
+        'chosen_inline_result' => ChosenInlineResult::class,
+        'callback_query' => CallbackQuery::class,
+        'shipping_query' => ShippingQuery::class,
+        'pre_checkout_query' => PreCheckoutQuery::class,
+        'poll_answer' => PollAnswer::class,
+        'poll' => Poll::class,
+        'my_chat_member' => ChatMemberUpdated::class,
+        'chat_member' => ChatMemberUpdated::class,
+        'chat_join_request' => ChatJoinRequest::class,
+    ];
+
+    /**
+     * @var array<string, class-string<Event>>
+     */
+    public array $events = [
         'message' => Message::class,
         'edited_message' => Message::class,
         'channel_post' => Message::class,
@@ -338,9 +358,9 @@ class Update extends BaseType implements TypeInterface
     }
 
     /**
+     * @return ShippingQuery|null
      * @author MY
      *
-     * @return ShippingQuery|null
      */
     public function getShippingQuery(): ?ShippingQuery
     {
@@ -349,9 +369,9 @@ class Update extends BaseType implements TypeInterface
 
     /**
      * @param ShippingQuery $shippingQuery
-          *
-          * @return void
-     *@author MY
+     *
+     * @return void
+     * @author MY
      *
      */
     public function setShippingQuery(ShippingQuery $shippingQuery): void
@@ -360,9 +380,9 @@ class Update extends BaseType implements TypeInterface
     }
 
     /**
+     * @return PreCheckoutQuery|null
      * @author MY
      *
-     * @return PreCheckoutQuery|null
      */
     public function getPreCheckoutQuery(): ?PreCheckoutQuery
     {
@@ -371,9 +391,9 @@ class Update extends BaseType implements TypeInterface
 
     /**
      * @param PreCheckoutQuery $preCheckoutQuery
-          *
+     *
      * @return void
-     *@author MY
+     * @author MY
      *
      */
     public function setPreCheckoutQuery(PreCheckoutQuery $preCheckoutQuery): void
@@ -431,4 +451,30 @@ class Update extends BaseType implements TypeInterface
     {
         $this->chatJoinRequest = $chatJoinRequest;
     }
+
+    /**
+     * @param string $eventName
+     * @return Event
+     */
+    public function getEvent(string $eventName): Event
+    {
+        return match ($eventName) {
+            'message' => $this->getMessage(),
+            'edited_message' => $this->getEditedMessage(),
+            'channel_post' => $this->getChannelPost(),
+            'edited_channel_post' => $this->getEditedChannelPost(),
+            'inline_query' => $this->getInlineQuery(),
+            'chosen_inline_result' => $this->getChosenInlineResult(),
+            'callback_query' => $this->getCallbackQuery(),
+            'shipping_query' => $this->getShippingQuery(),
+            'pre_checkout_query' => $this->getPreCheckoutQuery(),
+            'poll_answer' => $this->getPollAnswer(),
+            'poll' => $this->getPoll(),
+            'my_chat_member' => $this->getMyChatMember(),
+            'chat_member' => $this->getChatMember(),
+            'chat_join_request' => $this->getChatJoinRequest(),
+            default => throw new InvalidArgumentException("Unknown event name: $eventName"),
+        };
+    }
+
 }

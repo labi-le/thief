@@ -1,15 +1,17 @@
 <?php
+declare(strict_types=1);
 
 namespace labile\thief\tests\unit;
 
-use labile\thief\Command;
+use labile\thief\Command\Command;
+use labile\thief\Types\Message;
 
 class KeeperTest extends TestCase
 {
     public function testAll()
     {
         $keeper = $this->keeper();
-        $this->assertCount(2, $keeper->all());
+        $this->assertCount(1, $keeper->all());
 
         foreach ($keeper->all() as $command) {
             $this->assertIsArray($command);
@@ -22,10 +24,10 @@ class KeeperTest extends TestCase
     public function testAdd()
     {
         $keeper = $this->keeper();
-        $keeper->add('/add', TestCommand1::class, TestCommand2::class, TestCommand3::class);
-        $this->assertTrue($keeper->has('/add'));
+        $keeper->add(Message::class, TestCommand1::class, TestCommand2::class, TestCommand3::class);
+        $this->assertTrue($keeper->has(Message::class, TestCommand1::class));
 
-        foreach ($keeper->pipe('/add') as $item) {
+        foreach ($keeper->pipe(Message::class) as $item) {
             $this->assertInstanceOf(Command::class, $item);
             if ($item instanceof TestCommand1) {
                 $this->assertNotEquals(0, $item->property->id);
@@ -36,29 +38,29 @@ class KeeperTest extends TestCase
     public function testHas()
     {
         $keeper = $this->keeper();
-        $this->assertTrue($keeper->has('/start'));
-        $this->assertTrue($keeper->has('/test'));
+        $this->assertTrue($keeper->has(Message::class, TestCommand1::class));
+        $this->assertTrue($keeper->has(Message::class, TestCommand2::class));
     }
 
     public function testRemove()
     {
         $keeper = $this->keeper();
-        $keeper->remove('/test');
-        $this->assertFalse($keeper->has('/test'));
-        $this->assertTrue($keeper->has('/start'));
+        $keeper->remove(Message::class, TestCommand1::class);
+        $this->assertFalse($keeper->has(Message::class, TestCommand1::class));
+        $this->assertTrue($keeper->has(Message::class, TestCommand2::class));
     }
 
     public function testPipe()
     {
         $keeper = $this->keeper();
-        foreach ($keeper->pipe('/start') as $item) {
+        foreach ($keeper->pipe(Message::class) as $item) {
             $this->assertInstanceOf(Command::class, $item);
             if ($item instanceof TestCommand1) {
                 $this->assertNotEquals(0, $item->property->id);
             }
         }
 
-        foreach ($keeper->pipe('/test') as $item) {
+        foreach ($keeper->pipe(Message::class) as $item) {
             $this->assertInstanceOf(Command::class, $item);
             if ($item instanceof TestCommand1) {
                 $this->assertNotEquals(0, $item->property->id);
